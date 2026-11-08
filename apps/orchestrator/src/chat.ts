@@ -11,7 +11,7 @@ export const CHAT_SYSTEM_PROMPT =
   `person emit N objects, optionally splitting angles in "task" (e.g. "focus on professional background"). ` +
   `Use plain string tasks for everything else. Never emit the block for ordinary conversation.`;
 
-const SPAWN_RE = /<spawn_agents>([\s\S]*?)<\/spawn_agents>/;
+const SPAWN_RE = /<spawn_agents>([\s\S]*?)(?:<\/spawn_agents>|$)/;
 const AGENTISH = /\b(agents?|spawn|browse|computer|open|search for|go to)\b/i;
 const OSINT = /\b(?:research|osint|look up|investigate|find out about)\b\s+(.+)/i;
 const STRONG_PERSON =

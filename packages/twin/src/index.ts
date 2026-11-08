@@ -82,11 +82,8 @@ export async function buildPersona(
   if (!m) return fixturePersona(dossier.subjectId, name, dossier);
   try {
     const parsed = JSON.parse(m[0]);
-    return {
-      ...fixturePersona(dossier.subjectId, name, dossier),
-      ...parsed,
-      subjectId: dossier.subjectId,
-    };
+    const base = fixturePersona(dossier.subjectId, name, dossier);
+    return { ...base, ...parsed, id: base.id, name, subjectId: dossier.subjectId };
   } catch {
     return fixturePersona(dossier.subjectId, name, dossier);
   }

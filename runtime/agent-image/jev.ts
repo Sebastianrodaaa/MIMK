@@ -7,8 +7,8 @@ const JEV_ENDPOINT_DEFAULT = "https://openrouter.ai/api/alpha/decisions";
 const JEV_MODEL_DEFAULT = "~typesafe/jev-latest";
 const JEV_TIMEOUT_MS = 15000;
 const JEV_MAX_BYTES = 256 * 1024;
-const MAX_DECISIONS = 10;
-const WALL_CLOCK_MS = 45000;
+const MAX_DECISIONS = 16;
+const WALL_CLOCK_MS = 90000;
 
 export type JevOpts = {
   apiKey: string;
@@ -162,7 +162,7 @@ export type JevCtx = {
 const RULES = [
   "public sources only; never private/personal data, login pages, or people-search sites",
   "prefer corroborating an existing fact from an independent domain",
-  "choose finish when >=6 facts from >=3 domains or when no candidate adds information",
+  "choose finish only when >=10 facts from >=4 independent domains, or when no candidate adds information",
 ];
 
 export async function runJevResearch(ctx: JevCtx): Promise<{ summary: string; findings: { sourceUrl: string; summary: string }[] }> {
@@ -259,11 +259,15 @@ export async function runJevResearch(ctx: JevCtx): Promise<{ summary: string; fi
     }
   }
 
+  // too little real evidence for a report — let the caller fall back to the full browsing loop
+  const substantive = facts.length + evidence.filter((e) => e.chars >= 200).length;
+  if (substantive < 3) throw new Error("jev: insufficient evidence");
+
   // synthesis — one Holo call through ctx.synthesize, deterministic fallback
   const excerpts = [
     ...facts.map((f) => `- ${f.summary} <${f.sourceUrl}>`),
-    ...evidence.map((e) => `### ${e.url}\n${e.text.slice(0, 1200)}`),
-  ].join("\n").slice(0, 12000);
+    ...evidence.filter((e) => e.text.trim()).map((e) => `### ${e.url}\n${e.text.slice(0, 2500)}`),
+  ].join("\n").slice(0, 30000);
   try {
     const r = await ctx.synthesize(excerpts);
     if (r?.findings?.length) return r;

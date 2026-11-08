@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Research public figures, watch their twins live in a pixel office
+short_description: Research public figures; watch their twins in a pixel office
 ---
 
 MiMK builds grounded digital twins from public-source research and drops them into a pixel office with a world director. Ask the chat to "research Linus Torvalds", then open **World**.

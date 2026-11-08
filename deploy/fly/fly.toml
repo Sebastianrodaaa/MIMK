@@ -1,0 +1,30 @@
+# fly.toml app configuration file generated for mimk-demo on 2026-11-08T12:51:14+01:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'mimk-demo'
+primary_region = 'iad'
+
+[build]
+[env]
+  AGENT_BACKEND = 'none'
+  NEXT_PUBLIC_OFFICE_URL = '/office/'
+  NEXT_PUBLIC_ORCHESTRATOR_URL = '/orch'
+  NEXT_TELEMETRY_DISABLED = '1'
+  PORT = '7860'
+
+[[mounts]]
+  source = 'data'
+  destination = '/home/node/app/apps/orchestrator/data'
+
+[http_service]
+  internal_port = 7860
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1gb'

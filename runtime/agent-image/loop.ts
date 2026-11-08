@@ -157,7 +157,7 @@ Browser actions (ONE per reply, never inside an actions array):
 {"action":"click","ref":"<a11y ref from snapshot>"}
 {"action":"type","ref":"<a11y ref>","text":"..."}
 {"action":"press","keys":"return"}
-{"action":"done","summary":"short plain-text result","findings":[{"sourceUrl":"https://…","summary":"<fact>"}]} — list every fact you found (5-12 findings); findings may be omitted only when the task produced none
+{"action":"done","summary":"thorough multi-paragraph report","findings":[{"sourceUrl":"https://…","summary":"<fact>"}]} — list every fact you found (8-20 findings); findings may be omitted only when the task produced none
 Navigate by URL with "launch" whenever possible instead of typing into search boxes.
 Do NOT use Google (consent wall/locale). Use DuckDuckGo's HTML endpoint for searches:
 https://html.duckduckgo.com/html/?q=<url-encoded query>, direct Wikipedia pages
@@ -165,8 +165,8 @@ https://en.wikipedia.org/wiki/<Title_With_Underscores>, GitHub https://github.co
 Wayback https://web.archive.org/web/<url>. If a cookie/consent dialog appears (see DIALOGS),
 accept/dismiss it first. Never scroll — the compact snapshot already contains all page text
 (PAGE TEXT + INTERACTIVE refs), and fetch with offset reads the rest. Refs marked (offscreen) are handled automatically.
-Start with a "launch" action if a site is needed. Finish with "done" and a short plain-text summary.
-Don't spend more than ~15 steps.`;
+Start with a "launch" action if a site is needed. Finish with "done" and a thorough multi-paragraph report (250-500 words).
+Don't spend more than ~30 steps.`;
 
 const SYSTEM = GENERIC ? GENERIC_SYSTEM : `You are an OSINT research agent driving a Linux desktop with Firefox.
 Subject: ${JSON.stringify(SUBJECT)}
@@ -181,8 +181,8 @@ Browser actions (ONE per reply, never inside an actions array):
 {"action":"click","ref":"<a11y ref from snapshot>"}
 {"action":"type","ref":"<a11y ref>","text":"..."}
 {"action":"note","sourceUrl":"https://...","summary":"..."}
-{"action":"done","summary":"2-4 sentence overview","findings":[{"sourceUrl":"https://…","summary":"<one-sentence fact>"}]} — final done MUST list 5-12 findings each with its sourceUrl; facts from OBSERVATIONs only
-Playbook: (1) "search_person" first (your leads env may already answer); (2) from its "handles" run "username" with the name for verification; (3) "fetch" several relevant URLs in ONE batched step to read full pages — you may combine fetches and notes in one actions array; (4) the real browser is a LAST-RESORT fallback ONLY when a fetch returned ok:false, status>=400 or <200 chars for a page that matters — you already have the page text from fetch, do NOT open the browser to re-read it; (5) after every search_person/username/fetch observation, the VERY NEXT action SHOULD be "note" actions (batch up to 8) — each note takes sourceUrl + a one-sentence fact from OBSERVATION text only; (6) cross-check >=2 independent sources; (7) finish with "done" listing 5-12 findings with sourceUrls — done.findings is the PRIMARY way to record facts; target <=12 steps.
+{"action":"done","summary":"thorough multi-paragraph report (250-500 words)","findings":[{"sourceUrl":"https://…","summary":"<one-sentence fact>"}]} — final done MUST list 8-20 findings each with its sourceUrl; facts from OBSERVATIONs only
+Playbook: (1) "search_person" first (your leads env may already answer); (2) from its "handles" run "username" with the name for verification; (3) "fetch" several relevant URLs in ONE batched step to read full pages — you may combine fetches and notes in one actions array; (4) the real browser is a LAST-RESORT fallback ONLY when a fetch returned ok:false, status>=400 or <200 chars for a page that matters — you already have the page text from fetch, do NOT open the browser to re-read it; (5) after every search_person/username/fetch observation, the VERY NEXT action SHOULD be "note" actions (batch up to 8) — each note takes sourceUrl + a one-sentence fact from OBSERVATION text only; (6) cross-check >=2 independent sources; (7) finish with "done" listing 8-20 findings with sourceUrls — done.findings is the PRIMARY way to record facts; target <=25 steps.
 Navigation rules: prefer "launch" with a direct URL or "fetch" over typing into search boxes. Do NOT use Google (consent wall/locale). DuckDuckGo works ONLY via the browser (launch html.duckduckgo.com/html/?q=<query>), never via "fetch". If a cookie/consent dialog appears (DIALOGS), accept/dismiss first. Do NOT scroll — read PAGE TEXT; all page text is already there. Refs marked (offscreen) are handled automatically.
 These OSINT starting points are available if needed:
 Tools (Category: Name <url> - what):
@@ -339,7 +339,7 @@ async function main() {
         readGui: takeSnapshot,
         synthesize: async (excerpts) => {
           const reply = await chat([
-            { role: "system", content: `You synthesize OSINT research. Reply with ONE JSON object only: {"summary":"<2-4 sentence overview>","findings":[{"sourceUrl":"https://…","summary":"<one-sentence fact>"}]}. 5-12 findings, facts present in the supplied excerpts only, every finding needs a sourceUrl from the visited set.` },
+            { role: "system", content: `You synthesize OSINT research. Reply with ONE JSON object only: {"summary":"<full report>","findings":[{"sourceUrl":"https://…","summary":"<specific fact>"}]}. The summary is a thorough multi-paragraph report (roughly 250-500 words): background, key roles/achievements with dates, organizations, notable works, and any open questions or conflicting claims. 10-20 findings, each a specific self-contained fact (names, dates, numbers) present in the supplied excerpts only, every finding needs a sourceUrl from the visited set. If the excerpts contain no real information about the subject, reply {"summary":"","findings":[]} — never invent placeholder or example findings.` },
             { role: "user", content: excerpts },
           ]);
           const parsed = parseAction(reply);
@@ -348,8 +348,10 @@ async function main() {
         jevChoose,
         apiKey: process.env.OPENROUTER_API_KEY,
       });
-      for (const f of done.findings.slice(0, 12).filter((f: any) => /^https?:\/\//.test(String(f.sourceUrl ?? "")) && String(f.summary ?? "").trim())) {
-        const sum = filterSensitive(String(f.summary).slice(0, 300));
+      const goodFindings = done.findings.slice(0, 20).filter((f: any) => /^https?:\/\//.test(String(f.sourceUrl ?? "")) && String(f.summary ?? "").trim());
+      if (goodFindings.length < 3) throw new Error("jev: too few sourced findings");
+      for (const f of goodFindings) {
+        const sum = filterSensitive(String(f.summary).slice(0, 500));
         notes.push(sum); recordedNotes.push(String(f.summary).slice(0, 140));
         emit("finding", { runId: RUN_ID, sourceUrl: String(f.sourceUrl), summary: sum, ts: new Date().toISOString() });
       }
@@ -521,15 +523,15 @@ async function main() {
           const findings = Array.isArray(action.findings) ? action.findings : [];
           const good = findings.filter((f: any) =>
             typeof f?.summary === "string" && f.summary.trim() && /^https?:\/\//.test(String(f.sourceUrl ?? ""))
-          ).slice(0, 12);
+          ).slice(0, 20);
           if (good.length + recordedNotes.length < 3 && !doneRetried) {
             doneRetried = true;
             consecFails++; // soft failure, does not bail
-            lastObs = `OBSERVATION: Not enough sourced findings: put 5-12 {sourceUrl, summary} entries in done.findings (facts from your OBSERVATIONs only). You have ${good.length + recordedNotes.length}.`;
+            lastObs = `OBSERVATION: Not enough sourced findings: put 8-20 {sourceUrl, summary} entries in done.findings (facts from your OBSERVATIONs only). You have ${good.length + recordedNotes.length}.`;
             continue;
           }
           for (const f of good) {
-            const sum = filterSensitive(String(f.summary).slice(0, 300));
+            const sum = filterSensitive(String(f.summary).slice(0, 500));
             notes.push(sum); recordedNotes.push(String(f.summary).slice(0, 140));
             emit("finding", { runId: RUN_ID, sourceUrl: String(f.sourceUrl), summary: sum, ts: new Date().toISOString() });
           }
