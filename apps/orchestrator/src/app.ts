@@ -18,6 +18,7 @@ import { searchPerson } from "@mimk/osint";
 import { createResearchFeed } from "./research.js";
 import { createDirector, type Director } from "./director.js";
 import { createSociety, type Society } from "./society.js";
+import { createSimEpochs, type SimEpochs } from "./epochs.js";
 import { createBus } from "./bus.js";
 import {
   extractWorldActions, heuristicWorldAction, parseMention,
@@ -43,6 +44,7 @@ export interface Deps {
   worldDelayMs?: number;
   demo?: { ipCap: number; maxTwins: number; chatMsgCap: number; adminToken?: string };
   society?: { autostart?: boolean } | false;
+  epochs?: { autostart?: boolean } | false;
 }
 
 const sse = (res: express.Response) => {
@@ -178,15 +180,30 @@ export function createApp(deps: Deps) {
       research.publish({ runId: f.runId, subjectId: subject.id, subject: subject.name, kind: "world", text: `${subject.name}'s dossier updated (${count} facts)` });
     }
   }
+  // MiroFish epochs: periodic background simulations seeded by live society
+  // state. Created only when deps.epochs opts in; the 30s checker gates on
+  // viewers/twins/caps, so it's a no-op without them.
+  const epochs: SimEpochs | undefined =
+    !!deps.epochs
+      ? createSimEpochs({
+          sim: sim as any, db, society,
+          post: (pid, kind, text) => bus.publish({ personaId: pid, kind, text }, nameOf),
+          viewers,
+          ensurePump: () => ensurePump(),
+        })
+      : undefined;
+
   let pump: Promise<void> | undefined;
   const ensurePump = () => {
     pump ??= (async () => {
       for await (const e of sim!.events()) {
         if (e.personaId === "_system" || !e.text?.trim()) continue;
         bus.publish(e, nameOf);
+        epochs?.ingestEvent(e);
       }
     })().catch(() => {}).finally(() => { pump = undefined; });
   };
+  if (epochs && (deps.epochs as any)?.autostart !== false) epochs.start();
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const twinPrompt = (t: Persona, words: number) => {
@@ -427,10 +444,13 @@ export function createApp(deps: Deps) {
   app.get("/world/state", (_req, res) => res.json(director.state()));
 
   app.get("/world/pulse", (_req, res) =>
-    res.json(society?.pulse() ?? {
-      interactions10m: 0, interactionsTotal: 0, alliances: [], rivalries: [],
-      factions: [], topTopics: [], rumors: [], mood: 0,
-      watching: false, lastTickAt: null, llmCallsLastMin: 0,
+    res.json({
+      ...(society?.pulse() ?? {
+        interactions10m: 0, interactionsTotal: 0, alliances: [], rivalries: [],
+        factions: [], topTopics: [], rumors: [], mood: 0,
+        watching: false, lastTickAt: null, llmCallsLastMin: 0,
+      }),
+      sim: epochs?.state() ?? { configured: false, state: "unavailable", lastEpochAt: null, epochsToday: 0, lastPosts: 0 },
     }));
 
   const GodSchema = z.discriminatedUnion("op", [

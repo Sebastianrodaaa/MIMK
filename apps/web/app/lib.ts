@@ -103,6 +103,13 @@ export type Pulse = {
   watching: boolean;
   lastTickAt: string | null;
   llmCallsLastMin: number;
+  sim?: {
+    configured: boolean;
+    state: "idle" | "waking" | "running" | "unavailable";
+    lastEpochAt: string | null;
+    epochsToday: number;
+    lastPosts: number;
+  };
 };
 export type SimEvent = {
   personaId: string;

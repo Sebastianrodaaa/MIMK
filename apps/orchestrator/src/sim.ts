@@ -132,6 +132,45 @@ export class MirofishBackend implements SimBackend {
     }
   }
 
+  /** Poll until the backend answers (scale-to-zero cold starts take 30-90s). */
+  async waitReady(timeoutMs = 120000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      try {
+        const res = await this.fetchFn(`${this.baseUrl}/api/simulation/list`, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) return true;
+      } catch {}
+      if (Date.now() > deadline) return false;
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+
+  isActive(): boolean {
+    return this.running;
+  }
+
+  /** Wait for the current run to leave 'running', or for drive() to fail. */
+  async waitDone(pollMs = 10000, timeoutMs = 30 * 60000): Promise<{ posts: number; error?: string }> {
+    const deadline = Date.now() + timeoutMs;
+    // the runner can take a while to enter 'running' after /start — first
+    // wait for it to show up (or for drive() to end), then for it to leave
+    let sawRunning = false;
+    while (this.running && Date.now() < deadline) {
+      if (this.simId) {
+        try {
+          const rs = await this.j("GET", `/api/simulation/${this.simId}/run-status`);
+          if (["running", "starting"].includes(rs.runner_status)) sawRunning = true;
+          else if (sawRunning || ["completed", "finished", "stopped"].includes(rs.runner_status)) break;
+        } catch {}
+      }
+      if (!this.simId && !this.running) break;
+      await new Promise((r) => setTimeout(r, pollMs));
+    }
+    // drain a beat so in-flight event polls land
+    await new Promise((r) => setTimeout(r, Math.min(pollMs, 5000)));
+    return { posts: this.postsSeen.size + this.actionsSeen.size, error: this.err };
+  }
+
   async status(): Promise<string> {
     if (this.err) return `error: ${this.err}`;
     if (!this.simId) return this.running ? "preparing" : "idle";
@@ -165,14 +204,22 @@ export class MirofishBackend implements SimBackend {
             const key = a.action_id ?? a.id;
             if (this.actionsSeen.has(key)) continue;
             this.actionsSeen.add(key);
-            const kind = a.action_type === "like" ? "like" :
-              a.action_type === "follow" ? "follow" :
-              ["reply", "comment", "repost", "quote"].includes(a.action_type) ? "reply" : null;
+            const t = String(a.action_type ?? "").toUpperCase();
+            const kind = t === "LIKE_POST" || t === "LIKE" ? "like" :
+              t === "FOLLOW" ? "follow" :
+              t === "CREATE_POST" || t === "POST" ? "post" :
+              ["REPLY", "COMMENT", "REPOST", "QUOTE", "QUOTE_POST", "CREATE_COMMENT"].includes(t) ? "reply" : null;
             if (!kind) continue;
+            // action_args carries the acted-on author under various keys
+            const args = a.action_args ?? {};
+            const targetName = args.post_author_name ?? args.target_user_name ??
+              args.original_author_name ?? args.comment_author_name;
+            const targetId = targetName ? this.personaFor({ agent_name: targetName }) : undefined;
             this.queue.push({
               personaId: this.personaFor(a),
-              ts: a.created_at ?? new Date().toISOString(),
-              kind, text: String(a.content ?? a.action_type).slice(0, 200),
+              ts: a.created_at ?? a.timestamp ?? new Date().toISOString(),
+              kind, text: String(args.content ?? a.content ?? a.action_type).slice(0, 200),
+              ...(targetId && targetId !== "unknown" ? { targetId } : {}),
             });
           }
         } catch (e: any) {
@@ -205,6 +252,12 @@ export class MirofishBackend implements SimBackend {
     });
     return res?.result?.response ?? res?.result?.platforms?.twitter?.response;
   }
+}
+
+/** Whether to construct the MiroFish backend without probing it at boot.
+ *  Lazy mode tolerates scale-to-zero cold starts (Fly auto_stop). */
+export function mirofishLazy(env: Record<string, string | undefined> = process.env): boolean {
+  return env.MIROFISH_LAZY === "1";
 }
 
 export function loadFixtureDir(dir: string) {

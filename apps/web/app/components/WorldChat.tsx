@@ -198,6 +198,14 @@ export default function WorldChat({ onSpeak, onMeet, twins = [], onRemove, onRem
               </span>
             )}
             <span title="mean affinity">mood {pulse.mood > 0 ? "+" : ""}{pulse.mood}</span>
+            {pulse.sim?.configured && (
+              <span
+                className={`rounded px-1 py-0.5 ${pulse.sim.state === "running" || pulse.sim.state === "waking" ? "bg-sky-900/60 text-sky-300" : "bg-neutral-800/70 text-neutral-500"}`}
+                title={`MiroFish epochs: ${pulse.sim.epochsToday} today${pulse.sim.lastEpochAt ? `, last ${Math.max(0, Math.round((Date.now() - new Date(pulse.sim.lastEpochAt).getTime()) / 60000))}m ago` : ""}`}
+              >
+                📡 {pulse.sim.state}
+              </span>
+            )}
           </div>
         )}
       </div>

@@ -2,7 +2,7 @@ import Docker from "dockerode";
 import { existsSync, readFileSync } from "node:fs";
 import { createApp } from "./app.js";
 import { createDb } from "./db.js";
-import { loadFixtureDir, MirofishBackend, type SimBackend } from "./sim.js";
+import { loadFixtureDir, MirofishBackend, mirofishLazy, type SimBackend } from "./sim.js";
 import { reattachCollectors } from "./collector.js";
 import { createClient, type HClient } from "./hagents.js";
 import { pollHRun } from "./hcollector.js";
@@ -67,15 +67,22 @@ let simBackend: SimBackend | undefined = undefined;
 let simStatus: Record<string, unknown> = { sim: "none" };
 if (process.env.MIROFISH_URL) {
   const mf = new MirofishBackend(process.env.MIROFISH_URL);
-  try {
-    const r = await fetch(`${process.env.MIROFISH_URL}/api/simulation/list`, { signal: AbortSignal.timeout(3000) });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    if (!process.env.ZEP_API_KEY && !process.env.MIROFISH_ZEP_OK)
-      throw new Error("ZEP_API_KEY missing (get one at app.getzep.com)");
+  if (mirofishLazy()) {
+    // lazy mode: no boot probe — the backend may be scaled to zero and is
+    // woken by epoch requests (cold start 30-90s is handled per-epoch)
     simBackend = mf;
-    simStatus = { sim: "mirofish", mirofish: process.env.MIROFISH_URL };
-  } catch (e: any) {
-    simStatus = { sim: "none", simReason: `mirofish unavailable: ${String(e?.message ?? e)}` };
+    simStatus = { sim: "mirofish", mirofish: process.env.MIROFISH_URL, mirofishMode: "lazy" };
+  } else {
+    try {
+      const r = await fetch(`${process.env.MIROFISH_URL}/api/simulation/list`, { signal: AbortSignal.timeout(3000) });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      if (!process.env.ZEP_API_KEY && !process.env.MIROFISH_ZEP_OK)
+        throw new Error("ZEP_API_KEY missing (get one at app.getzep.com)");
+      simBackend = mf;
+      simStatus = { sim: "mirofish", mirofish: process.env.MIROFISH_URL };
+    } catch (e: any) {
+      simStatus = { sim: "none", simReason: `mirofish unavailable: ${String(e?.message ?? e)}` };
+    }
   }
 }
 
@@ -99,6 +106,7 @@ createApp({
   director: { autostart: process.env.DIRECTOR !== "off", intervalMs: Number(process.env.DIRECTOR_INTERVAL_MS ?? 45000) },
   status: () => simStatus,
   society: process.env.SOCIETY === "off" ? false : { autostart: true },
+  epochs: process.env.EPOCHS === "off" ? false : { autostart: true },
   ...(process.env.DEMO_MODE === "1" ? {
     demo: {
       ipCap: Number(process.env.DEMO_IP_CAP ?? 3),

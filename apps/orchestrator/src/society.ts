@@ -361,6 +361,16 @@ export function createSociety(deps: SocietyDeps) {
     recordRumor(personaId: string, text: string, source?: string) {
       addMemory(personaId, "rumor", text, 4, source);
     },
+    /** Sim-layer affinity nudges (likes/follows/replies) — same emergence
+     *  thresholds as real conversations. */
+    nudgeAffinity(aId: string, bId: string, delta: number) {
+      if (aId === bId) return;
+      const a = db.getTwin(aId);
+      const b = db.getTwin(bId);
+      if (!a || !b) return;
+      const rel = db.getRelationship(aId, bId);
+      emerge(a, b, (rel?.affinity ?? 0) + delta, rel?.topic ?? undefined);
+    },
     profileFor(personaId: string) {
       const t = db.getTwin(personaId);
       const relationships = db.listRelationships()

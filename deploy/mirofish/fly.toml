@@ -1,0 +1,29 @@
+# fly.toml for the private MiroFish backend (scales to zero between epochs).
+app = 'mimk-sim'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'deploy/mirofish/Dockerfile'
+  # build context must be the repo-root services/mirofish directory;
+  # deploy with: fly deploy -c deploy/mirofish/fly.toml --dockerfile deploy/mirofish/Dockerfile services/mirofish
+  # (see README.md — fly.toml alone won't set the context)
+
+[env]
+  FLASK_HOST = '0.0.0.0'
+  FLASK_PORT = '5001'
+
+[[mounts]]
+  source = 'mimk_sim_data'
+  destination = '/app/backend/uploads'
+  # holds projects/ and simulations/ (uploads + oasis sqlite state) across stops
+
+[http_service]
+  internal_port = 5001
+  force_https = false
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[vm]
+  size = 'shared-cpu-1x'
+  memory = '2gb'
