@@ -10,6 +10,9 @@ type Profile = {
   goals: { id: string; title: string; progress: number; status: string }[];
   conflicts: { id: string; issue: string; intensity: number; status: string; otherName?: string }[];
   recent: { id: number; ts: string; kind: string; text: string }[];
+  relationships: { otherId: string; otherName: string; affinity: number; status: string; topic: string | null }[];
+  memories: { ts: string; kind: string; text: string; source: string | null }[];
+  interactions: { ts: string; otherId: string; otherName: string; summary: string; intent: string; delta: number }[];
 };
 
 const KIND_COLOR: Record<string, string> = {
@@ -21,7 +24,9 @@ const KIND_COLOR: Record<string, string> = {
   other: "bg-neutral-800 text-neutral-400",
 };
 
-export default function ProfileDrawer({ twinId, onClose }: { twinId: string; onClose: () => void }) {
+export default function ProfileDrawer({ twinId, onClose, onOpen }: {
+  twinId: string; onClose: () => void; onOpen?: (id: string) => void;
+}) {
   const [p, setP] = useState<Profile | null>(null);
   const [err, setErr] = useState("");
 
@@ -105,6 +110,80 @@ export default function ProfileDrawer({ twinId, onClose }: { twinId: string; onC
             <h4 className="mb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-500">Speech style</h4>
             <p className="text-neutral-400">{persona.speechStyle}</p>
           </section>
+
+          {p.relationships.length > 0 && (
+            <section>
+              <h4 className="mb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-500">Relationships</h4>
+              <div className="space-y-1.5">
+                {p.relationships.map((r) => (
+                  <div key={r.otherId}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onOpen?.(r.otherId)}
+                        className="truncate text-neutral-200 hover:text-sky-300 hover:underline"
+                      >
+                        {r.otherName}
+                      </button>
+                      <span className={`shrink-0 rounded px-1 py-0.5 text-[9px] ${
+                        r.status === "ally" ? "bg-emerald-900/60 text-emerald-300"
+                        : r.status === "rival" ? "bg-red-900/60 text-red-300"
+                        : "bg-neutral-800 text-neutral-500"}`}>
+                        {r.status}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-1">
+                      <div className="h-1 flex-1 rounded bg-neutral-800">
+                        <div
+                          className={`h-1 rounded ${r.affinity >= 0 ? "bg-emerald-600" : "bg-red-600"}`}
+                          style={{ width: `${Math.min(100, Math.abs(r.affinity))}%` }}
+                        />
+                      </div>
+                      <span className="w-6 text-right text-[9px] text-neutral-600">{r.affinity}</span>
+                    </div>
+                    {r.topic && <p className="text-[10px] text-neutral-600">re: {r.topic}</p>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {p.memories.length > 0 && (
+            <section>
+              <h4 className="mb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-500">Remembers</h4>
+              <ul className="space-y-1">
+                {p.memories.map((m, i) => (
+                  <li key={i} className="text-neutral-400">
+                    <span className="text-neutral-600">
+                      {m.kind === "rumor" ? "🗞 " : m.kind === "event" ? "⚡ " : m.kind === "reflection" ? "💭 " : ""}
+                    </span>
+                    {m.text}
+                    {m.source && <span className="text-neutral-600"> (heard from {m.source})</span>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {p.interactions.length > 0 && (
+            <section>
+              <h4 className="mb-1 text-[10px] font-medium uppercase tracking-wide text-neutral-500">Recent conversations</h4>
+              <ul className="space-y-1">
+                {p.interactions.map((i, n) => (
+                  <li key={n} className="text-neutral-400">
+                    <button
+                      type="button"
+                      onClick={() => onOpen?.(i.otherId)}
+                      className="text-neutral-300 hover:text-sky-300 hover:underline"
+                    >
+                      {i.otherName}
+                    </button>
+                    <span className="text-neutral-600"> · {i.intent} · {i.delta > 0 ? "+" : ""}{i.delta}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {(p.dossier || p.findings.length > 0) && (
             <section>

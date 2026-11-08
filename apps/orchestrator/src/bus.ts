@@ -5,6 +5,7 @@ export type FeedEvent = {
   ts: string;
   kind: "post" | "reply" | "like" | "follow";
   text: string;
+  targetId?: string;
 };
 
 export function createBus(limit = 200) {
@@ -13,7 +14,7 @@ export function createBus(limit = 200) {
   let nextId = 1;
   return {
     publish(
-      e: { personaId: string; ts?: string; kind: FeedEvent["kind"]; text: string },
+      e: { personaId: string; ts?: string; kind: FeedEvent["kind"]; text: string; targetId?: string },
       nameOf: (id: string) => string
     ): FeedEvent {
       const ev: FeedEvent = {
@@ -23,6 +24,7 @@ export function createBus(limit = 200) {
         ts: e.ts ?? new Date().toISOString(),
         kind: e.kind,
         text: e.text,
+        ...(e.targetId ? { targetId: e.targetId } : {}),
       };
       buffer.push(ev);
       if (buffer.length > limit) buffer.shift();
@@ -33,6 +35,9 @@ export function createBus(limit = 200) {
       const history = [...buffer];
       subs.add(cb);
       return { history, close: () => subs.delete(cb) };
+    },
+    history(): FeedEvent[] {
+      return [...buffer];
     },
   };
 }

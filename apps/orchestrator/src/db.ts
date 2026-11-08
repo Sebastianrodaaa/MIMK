@@ -53,6 +53,23 @@ export function createDb(path: string) {
       visitorId TEXT NOT NULL, subjectId TEXT NOT NULL,
       PRIMARY KEY (visitorId, subjectId)
     );
+    CREATE TABLE IF NOT EXISTS relationships (
+      aId TEXT NOT NULL, bId TEXT NOT NULL,
+      affinity INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'neutral',
+      lastAt TEXT, topic TEXT,
+      PRIMARY KEY (aId, bId)
+    );
+    CREATE TABLE IF NOT EXISTS memories (
+      id TEXT PRIMARY KEY, personaId TEXT NOT NULL, ts TEXT NOT NULL,
+      text TEXT NOT NULL, kind TEXT NOT NULL,
+      importance INTEGER NOT NULL DEFAULT 3, source TEXT
+    );
+    CREATE TABLE IF NOT EXISTS interactions (
+      id TEXT PRIMARY KEY, ts TEXT NOT NULL,
+      aId TEXT NOT NULL, bId TEXT NOT NULL,
+      summary TEXT NOT NULL, intent TEXT NOT NULL, delta INTEGER NOT NULL
+    );
   `);
   for (const stmt of [
     "ALTER TABLE subjects ADD COLUMN consent INTEGER NOT NULL DEFAULT 1",
@@ -225,6 +242,61 @@ export function createDb(path: string) {
     },
     countTwins(): number {
       return (db.prepare("SELECT COUNT(*) AS n FROM twins").get() as any).n;
+    },
+    getRelationship(a: string, b: string) {
+      const [aId, bId] = [a, b].sort();
+      return db.prepare("SELECT * FROM relationships WHERE aId=? AND bId=?").get(aId, bId) as
+        | { aId: string; bId: string; affinity: number; status: string; lastAt: string | null; topic: string | null }
+        | undefined;
+    },
+    saveRelationship(a: string, b: string, patch: { affinity: number; status: string; lastAt?: string | null; topic?: string | null }) {
+      const [aId, bId] = [a, b].sort();
+      const affinity = Math.max(-100, Math.min(100, Math.round(patch.affinity)));
+      db.prepare(
+        "INSERT INTO relationships (aId,bId,affinity,status,lastAt,topic) VALUES (?,?,?,?,?,?) " +
+        "ON CONFLICT(aId,bId) DO UPDATE SET affinity=excluded.affinity,status=excluded.status,lastAt=excluded.lastAt,topic=excluded.topic"
+      ).run(aId, bId, affinity, patch.status, patch.lastAt ?? null, patch.topic ?? null);
+    },
+    listRelationships() {
+      return db.prepare("SELECT * FROM relationships").all() as
+        { aId: string; bId: string; affinity: number; status: string; lastAt: string | null; topic: string | null }[];
+    },
+    addMemory(m: { id: string; personaId: string; ts: string; text: string; kind: string; importance?: number; source?: string }) {
+      db.prepare(
+        "INSERT INTO memories (id,personaId,ts,text,kind,importance,source) VALUES (?,?,?,?,?,?,?)"
+      ).run(m.id, m.personaId, m.ts, m.text, m.kind, m.importance ?? 3, m.source ?? null);
+      // cap: newest 60 per persona
+      db.prepare(
+        "DELETE FROM memories WHERE personaId=? AND id NOT IN " +
+        "(SELECT id FROM memories WHERE personaId=? ORDER BY ts DESC LIMIT 60)"
+      ).run(m.personaId, m.personaId);
+    },
+    getMemories(personaId: string, kind?: string) {
+      return (kind
+        ? db.prepare("SELECT * FROM memories WHERE personaId=? AND kind=? ORDER BY ts DESC").all(personaId, kind)
+        : db.prepare("SELECT * FROM memories WHERE personaId=? ORDER BY ts DESC").all(personaId)) as
+        { id: string; personaId: string; ts: string; text: string; kind: string; importance: number; source: string | null }[];
+    },
+    addInteraction(i: { id: string; ts: string; aId: string; bId: string; summary: string; intent: string; delta: number }) {
+      db.prepare(
+        "INSERT INTO interactions (id,ts,aId,bId,summary,intent,delta) VALUES (?,?,?,?,?,?,?)"
+      ).run(i.id, i.ts, i.aId, i.bId, i.summary, i.intent, i.delta);
+      db.prepare(
+        "DELETE FROM interactions WHERE id NOT IN (SELECT id FROM interactions ORDER BY ts DESC LIMIT 300)"
+      ).run();
+    },
+    listInteractions(limit = 100) {
+      return db.prepare("SELECT * FROM interactions ORDER BY ts DESC LIMIT ?").all(limit) as
+        { id: string; ts: string; aId: string; bId: string; summary: string; intent: string; delta: number }[];
+    },
+    countInteractions(): number {
+      return (db.prepare("SELECT COUNT(*) AS n FROM interactions").get() as any).n;
+    },
+    countInteractionsFor(personaId: string): number {
+      return (db.prepare("SELECT COUNT(*) AS n FROM interactions WHERE aId=? OR bId=?").get(personaId, personaId) as any).n;
+    },
+    interactionsSince(ts: string): number {
+      return (db.prepare("SELECT COUNT(*) AS n FROM interactions WHERE ts>=?").get(ts) as any).n;
     },
   };
 }

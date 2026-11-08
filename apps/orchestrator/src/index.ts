@@ -98,6 +98,7 @@ createApp({
   agentBackend: process.env.AGENT_BACKEND === "h" ? "h" : process.env.AGENT_BACKEND === "none" ? "none" : "docker",
   director: { autostart: process.env.DIRECTOR !== "off", intervalMs: Number(process.env.DIRECTOR_INTERVAL_MS ?? 45000) },
   status: () => simStatus,
+  society: process.env.SOCIETY === "off" ? false : { autostart: true },
   ...(process.env.DEMO_MODE === "1" ? {
     demo: {
       ipCap: Number(process.env.DEMO_IP_CAP ?? 3),

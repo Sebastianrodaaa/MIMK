@@ -17,6 +17,7 @@ import { CHAT_SYSTEM_PROMPT, extractSpawn, heuristicSpawn, strongIntentSpawn, ty
 import { searchPerson } from "@mimk/osint";
 import { createResearchFeed } from "./research.js";
 import { createDirector, type Director } from "./director.js";
+import { createSociety, type Society } from "./society.js";
 import { createBus } from "./bus.js";
 import {
   extractWorldActions, heuristicWorldAction, parseMention,
@@ -41,6 +42,7 @@ export interface Deps {
   status?: () => Record<string, unknown>;
   worldDelayMs?: number;
   demo?: { ipCap: number; maxTwins: number; chatMsgCap: number; adminToken?: string };
+  society?: { autostart?: boolean } | false;
 }
 
 const sse = (res: express.Response) => {
@@ -69,15 +71,38 @@ export function createApp(deps: Deps) {
   const subjectName = (subjectId: string) =>
     subjectId === "_chat" ? "task" : (db.getSubject(subjectId)?.name ?? subjectId);
   const whispers = new Map<string, string>();
+  // viewer tracking: the world is "watched" while a /world/feed SSE is open
+  // (or shortly after the last one closed) — gates all autonomous LLM spend
+  let viewersCount = 0;
+  let lastViewerAt = 0;
+  const viewers = () => viewersCount;
+  const watching = () => viewersCount > 0 || Date.now() - lastViewerAt < 60000;
+  const gatedChat: ChatFn | undefined = chat
+    ? async (m) => (watching() ? chat(m) : "")
+    : undefined;
   const director: Director = createDirector({
     db: db as any,
-    chat: chat as any,
+    chat: gatedChat as any,
     post: (personaId, kind, text) => bus.publish({ personaId, kind, text }, nameOf),
     facts: () => recentFacts,
     feed: () => busHistory().slice(-8).map((e) => `${e.name}: ${e.text}`),
     whisper: (pid) => whispers.get(pid),
     worldDelayMs,
   });
+  // Autonomous agent society: agents talk to each other, remember, form
+  // alliances/rivalries. Off unless deps.society opts in (tests stay off).
+  const societyEnabled = deps.society !== false && deps.society !== undefined && process.env.SOCIETY !== "off";
+  const society: Society | undefined = societyEnabled
+    ? createSociety({
+        db, chat,
+        post: (pid, kind, text, targetId) => bus.publish({ personaId: pid, kind, text, targetId }, nameOf),
+        director,
+        facts: () => recentFacts,
+        whisper: (pid) => whispers.get(pid),
+        viewers,
+      })
+    : undefined;
+  if (society && (deps.society as any)?.autostart !== false) society.start();
   const recentFacts: string[] = [];
   const pushFact = (s: string) => { recentFacts.unshift(s); if (recentFacts.length > 20) recentFacts.pop(); };
   const dbx: typeof db = new Proxy(db as any, {
@@ -218,7 +243,7 @@ export function createApp(deps: Deps) {
       }
     }
   }
-  const busHistory = () => bus.subscribe(() => {}).history;
+  const busHistory = () => bus.history();
 
   async function askTwin(persona: string, text: string) {
     const twin = db.listTwins().find((t) => t.name.toLowerCase() === persona.toLowerCase());
@@ -377,10 +402,18 @@ export function createApp(deps: Deps) {
 
   app.get("/world/feed", (req, res) => {
     sse(res);
+    viewersCount++;
+    lastViewerAt = Date.now();
+    society?.wake();
     const sub = bus.subscribe((e) => res.write(`data: ${JSON.stringify(e)}\n\n`));
     for (const e of sub.history) res.write(`data: ${JSON.stringify({ ...e, history: true })}\n\n`);
     const ping = setInterval(() => res.write(`: ping\n\n`), 25000);
-    req.on("close", () => { sub.close(); clearInterval(ping); });
+    req.on("close", () => {
+      viewersCount = Math.max(0, viewersCount - 1);
+      lastViewerAt = Date.now();
+      sub.close();
+      clearInterval(ping);
+    });
   });
 
   app.get("/research/feed", (req, res) => {
@@ -392,6 +425,13 @@ export function createApp(deps: Deps) {
   });
 
   app.get("/world/state", (_req, res) => res.json(director.state()));
+
+  app.get("/world/pulse", (_req, res) =>
+    res.json(society?.pulse() ?? {
+      interactions10m: 0, interactionsTotal: 0, alliances: [], rivalries: [],
+      factions: [], topTopics: [], rumors: [], mood: 0,
+      watching: false, lastTickAt: null, llmCallsLastMin: 0,
+    }));
 
   const GodSchema = z.discriminatedUnion("op", [
     z.object({ op: z.literal("director"), enabled: z.boolean().optional(), intervalSec: z.number().min(15).max(300).optional() }),
@@ -423,6 +463,7 @@ export function createApp(deps: Deps) {
       };
       const text = body.text?.trim() || presets[body.preset ?? ""] || `${twins[0]?.name ?? "Someone"} faces unexpected news`;
       bus.publish({ personaId: "_god", kind: "post", text }, nameOf);
+      society?.recordEvent(text);
       if (twins.length) void reactTo(text);
     } else if (body.op === "goal") {
       const t = twinOf(body.persona);
@@ -479,12 +520,15 @@ export function createApp(deps: Deps) {
     }
     if (!reply && actions.length) reply = `Done: ${actions.map((a) => a.type).join(", ")}…`;
     const DEMO_BANNED = new Set(["remove", "director", "goal", "conflict", "simulate"]);
+    society?.recordEvent(lastUser.content);
     for (const a of actions) {
-      if (demo && !isAdmin(req) && DEMO_BANNED.has(a.type)) {
-        bus.publish({ personaId: "_god", kind: "post", text: `The "${a.type}" action isn't available in the hosted demo.` }, nameOf);
-        continue;
-      }
-      void execWorldAction(a).catch(() => {});
+      // demo visitors can't steer the world — their message becomes an event
+      // the agents react to instead of an action on it
+      const action =
+        demo && !isAdmin(req) && DEMO_BANNED.has(a.type)
+          ? { type: "inject", text: lastUser.content } as WorldAction
+          : a;
+      void execWorldAction(action).catch(() => {});
     }
     res.json({ reply, actions });
   });
@@ -1083,10 +1127,14 @@ export function createApp(deps: Deps) {
         otherName: db.getTwin(c.aId === persona.id ? c.bId : c.aId)?.name,
       }));
     const recent = busHistory().filter((e) => e.personaId === persona.id).slice(-10);
+    const social = society?.profileFor(persona.id);
     res.json({
       persona,
       dossier: d ? { summary: d.summary, facts: d.facts } : null,
       findings, goals, conflicts, recent,
+      relationships: social?.relationships ?? [],
+      memories: social?.memories ?? [],
+      interactions: social?.interactions ?? [],
     });
   });
 
@@ -1158,6 +1206,7 @@ export function createApp(deps: Deps) {
     injected.push({
       personaId: "_god", ts: new Date().toISOString(), kind: "post", text,
     });
+    society?.recordEvent(text);
     res.json({ ok: true });
   });
 

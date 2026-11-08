@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ORCH, FeedEvent, Persona } from "../lib";
+import { ORCH, FeedEvent, Persona, Pulse } from "../lib";
 import GodTools from "./GodTools";
 import { Crown } from "lucide-react";
 import { Users, X } from "lucide-react";
@@ -24,10 +24,17 @@ const SUGGESTIONS = [
   "Pause the director",
   "Announce: free pizza in the kitchen",
 ];
+const DEMO_SUGGESTIONS = [
+  "Announce: free pizza in the kitchen",
+  "Rumor: the office is moving to another city",
+  "Breaking: a rival company just launched a competing product",
+  "The coffee machine just broke",
+];
 
-export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, onFollow, onProfile, demo }: {
+export default function WorldChat({ onSpeak, onMeet, twins = [], onRemove, onRemoveAll, onFollow, onProfile, demo }: {
   onFollow?: (personaId: string | null) => void;
   onSpeak: (personaId: string, text: string) => void;
+  onMeet?: (aId: string, bId: string) => void;
   twins?: Persona[];
   onRemove?: (id: string) => void;
   onRemoveAll?: () => void;
@@ -65,6 +72,20 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
   const scroll = useRef<HTMLDivElement>(null);
   const speakRef = useRef(onSpeak);
   speakRef.current = onSpeak;
+  const meetRef = useRef(onMeet);
+  meetRef.current = onMeet;
+  const [pulse, setPulse] = useState<Pulse>();
+
+  useEffect(() => {
+    let stop = false;
+    const load = () => {
+      if (document.visibilityState !== "visible") return;
+      fetch(`${ORCH}/world/pulse`).then((r) => r.json()).then((p) => { if (!stop) setPulse(p); }).catch(() => {});
+    };
+    load();
+    const t = setInterval(load, 6000);
+    return () => { stop = true; clearInterval(t); };
+  }, []);
 
   useEffect(() => {
     const es = new EventSource(`${ORCH}/world/feed`);
@@ -74,7 +95,10 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
         if (seen.current.has(ev.id)) return;
         seen.current.add(ev.id);
         setItems((prev) => [...prev, { kind: "event", ev }]);
-        if (!ev.history && ev.personaId !== "_god") speakRef.current(ev.personaId, ev.text);
+        if (!ev.history && ev.personaId !== "_god") {
+          speakRef.current(ev.personaId, ev.text);
+          if (ev.targetId) meetRef.current?.(ev.personaId, ev.targetId);
+        }
       } catch {}
     };
     return () => es.close();
@@ -157,6 +181,25 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
           </div>
         </div>
         {simNotice && <p className="mt-0.5 text-[11px] text-amber-500">{simNotice}</p>}
+        {pulse && (
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-neutral-500">
+            {!pulse.watching && <span className="rounded bg-neutral-800 px-1 py-0.5 text-neutral-600">sleeping</span>}
+            <span title="conversations in the last 10 min">💬 {pulse.interactions10m}</span>
+            <span title="alliances">🤝 {pulse.alliances.length}</span>
+            <span title="rivalries">⚔️ {pulse.rivalries.length}</span>
+            {pulse.factions.map((f, i) => (
+              <span key={i} className="rounded bg-neutral-800/70 px-1 py-0.5 text-neutral-400" title="faction">
+                {f.join(" + ")}
+              </span>
+            ))}
+            {pulse.rumors[0] && (
+              <span className="truncate text-neutral-600" title={`heard by ${pulse.rumors[0].aware.join(", ")}`}>
+                🗞 {pulse.rumors[0].text.slice(0, 40)}{pulse.rumors[0].aware.length ? ` (${pulse.rumors[0].aware.length} know)` : ""}
+              </span>
+            )}
+            <span title="mean affinity">mood {pulse.mood > 0 ? "+" : ""}{pulse.mood}</span>
+          </div>
+        )}
       </div>
       {rosterOpen && (
         <div className="max-h-40 overflow-y-auto border-b border-neutral-800 px-3 py-2">
@@ -239,7 +282,7 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
         {empty && (
           <div className="flex h-full flex-col items-center justify-center gap-3">
             <p className="text-xs text-neutral-500">Trigger events, ask what-ifs, or @name a twin.</p>
-            {SUGGESTIONS.map((s) => (
+            {(demo ? DEMO_SUGGESTIONS : SUGGESTIONS).map((s) => (
               <button
                 key={s} type="button" onClick={() => send(s)}
                 className="w-full rounded-lg border border-neutral-800 px-3 py-2 text-left text-xs text-neutral-300 hover:bg-neutral-800"

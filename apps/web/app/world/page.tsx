@@ -54,6 +54,16 @@ export default function World() {
   const sayRef = useRef(api.say);
   sayRef.current = api.say;
   const onSpeak = useCallback((pid: string, text: string) => sayRef.current(pid, text), []);
+  // walking pairs together: at most one mimkMeet per pair per 6s
+  const meetAt = useRef(new Map<string, number>());
+  const onMeet = useCallback((a: string, b: string) => {
+    const key = [a, b].sort().join("|");
+    const last = meetAt.current.get(key) ?? 0;
+    if (Date.now() - last < 6000) return;
+    meetAt.current.set(key, Date.now());
+    post({ type: "mimkMeet", a: officeIdFor(a), b: officeIdFor(b) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const deleteTwin = (pid: string | undefined) => {
@@ -138,9 +148,9 @@ export default function World() {
         className="flex-1 min-w-0 h-full rounded-lg border border-neutral-800 bg-black"
       />
       <div className="flex w-96 shrink-0 flex-col gap-2">
-        <WorldChat onSpeak={onSpeak} twins={personas} onRemove={onRemove} onRemoveAll={onRemoveAll} onFollow={onFollow} onProfile={openProfile} demo={demo.demo} />
+        <WorldChat onSpeak={onSpeak} onMeet={onMeet} twins={personas} onRemove={onRemove} onRemoveAll={onRemoveAll} onFollow={onFollow} onProfile={openProfile} demo={demo.demo} />
       </div>
-      {profileId && <ProfileDrawer twinId={profileId} onClose={() => setProfileId(null)} />}
+      {profileId && <ProfileDrawer twinId={profileId} onClose={() => setProfileId(null)} onOpen={openProfile} />}
     </main>
   );
 }

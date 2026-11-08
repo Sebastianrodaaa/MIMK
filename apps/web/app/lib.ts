@@ -88,7 +88,21 @@ export type FeedEvent = {
   ts: string;
   kind: "post" | "reply" | "like" | "follow";
   text: string;
+  targetId?: string;
   history?: boolean;
+};
+export type Pulse = {
+  interactions10m: number;
+  interactionsTotal: number;
+  alliances: { a: string; b: string }[];
+  rivalries: { a: string; b: string; issue: string }[];
+  factions: string[][];
+  topTopics: { topic: string; count: number }[];
+  rumors: { text: string; origin?: string; aware: string[] }[];
+  mood: number;
+  watching: boolean;
+  lastTickAt: string | null;
+  llmCallsLastMin: number;
 };
 export type SimEvent = {
   personaId: string;
