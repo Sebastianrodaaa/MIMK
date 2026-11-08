@@ -3,7 +3,7 @@ app = 'mimk-sim'
 primary_region = 'iad'
 
 [build]
-  dockerfile = 'deploy/mirofish/Dockerfile'
+  dockerfile = 'Dockerfile'
   # build context must be the repo-root services/mirofish directory;
   # deploy with: fly deploy -c deploy/mirofish/fly.toml --dockerfile deploy/mirofish/Dockerfile services/mirofish
   # (see README.md — fly.toml alone won't set the context)

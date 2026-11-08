@@ -17,6 +17,11 @@ primary_region = 'iad'
   DEMO_IP_CAP = '3'
   DEMO_MAX_TWINS = '40'
   DEMO_CHAT_MSG_CAP = '30'
+  MIROFISH_URL = 'http://mimk-sim.flycast'
+  MIROFISH_LAZY = '1'
+  SIM_EPOCHS_PER_DAY = '3'
+  SIM_EPOCH_MIN_MIN = '60'
+  SIM_EPOCH_ROUNDS = '3'
 
 [[mounts]]
   source = 'data'
