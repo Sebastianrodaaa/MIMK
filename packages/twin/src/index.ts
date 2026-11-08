@@ -66,25 +66,41 @@ export function fixturePersona(subjectId: string, name: string, dossier: Dossier
 export async function buildPersona(
   dossier: Dossier,
   name: string,
-  chat?: ChatFn
+  chat?: ChatFn,
+  opts?: { kind?: string; conversation?: string }
 ): Promise<Persona> {
-  if (!chat) return fixturePersona(dossier.subjectId, name, dossier);
+  if (!chat) {
+    const p = fixturePersona(dossier.subjectId, name, dossier);
+    return opts?.kind ? { ...p, kind: opts.kind } : p;
+  }
+  const kindNote =
+    opts?.kind && opts.kind !== "person"
+      ? ` The entity is a ${opts.kind} (not a person): write the persona as a character that embodies and represents it — an employee, spokesperson or mascot voice speaking for it.`
+      : "";
   const reply = await chat([
     {
       role: "system",
       content:
         "Build a fictional twin persona for a pixel-world simulation from this research dossier. " +
-        "Reply with raw JSON only: {name, traits[], stances[], speechStyle, interests[], relationships[], avatar:{palette:[#rrggbb,...], accessory:'none|hat|glasses|scarf|headphones'}, bio}. Keep it respectful, based only on the dossier.",
+        "Reply with raw JSON only: {name, traits[], stances[], speechStyle, interests[], relationships[], avatar:{palette:[#rrggbb,...], accessory:'none|hat|glasses|scarf|headphones'}, bio}. Keep it respectful, based only on the dossier." +
+        kindNote,
     },
-    { role: "user", content: JSON.stringify({ name, dossier }) },
+    {
+      role: "user",
+      content: JSON.stringify({
+        name, dossier,
+        ...(opts?.conversation ? { conversation: opts.conversation.slice(0, 4000) } : {}),
+      }),
+    },
   ]);
+  const withKind = (p: Persona): Persona => (opts?.kind ? { ...p, kind: opts.kind } : p);
   const m = reply.match(/\{[\s\S]*\}/);
-  if (!m) return fixturePersona(dossier.subjectId, name, dossier);
+  if (!m) return withKind(fixturePersona(dossier.subjectId, name, dossier));
   try {
     const parsed = JSON.parse(m[0]);
     const base = fixturePersona(dossier.subjectId, name, dossier);
-    return { ...base, ...parsed, id: base.id, name, subjectId: dossier.subjectId };
+    return { ...base, ...parsed, id: base.id, name, subjectId: dossier.subjectId, kind: opts?.kind };
   } catch {
-    return fixturePersona(dossier.subjectId, name, dossier);
+    return withKind(fixturePersona(dossier.subjectId, name, dossier));
   }
 }

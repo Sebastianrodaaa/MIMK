@@ -25,12 +25,14 @@ const SUGGESTIONS = [
   "Announce: free pizza in the kitchen",
 ];
 
-export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, onFollow }: {
+export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, onFollow, onProfile, demo }: {
   onFollow?: (personaId: string | null) => void;
   onSpeak: (personaId: string, text: string) => void;
   twins?: Persona[];
   onRemove?: (id: string) => void;
   onRemoveAll?: () => void;
+  onProfile?: (id: string) => void;
+  demo?: boolean;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -106,6 +108,7 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
       const res = await fetch(`${ORCH}/world/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ messages: [...history, { role: "user", content: text }].slice(-20) }),
         signal: abort.current.signal,
       });
@@ -126,7 +129,7 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
     <aside className="relative flex h-full w-96 shrink-0 flex-col rounded-lg border border-neutral-800 bg-neutral-900/50">
       {godOpen && (
         <div className="god-drawer absolute inset-x-2 bottom-16 z-20 max-h-[55%] overflow-y-auto rounded-lg border border-neutral-700 bg-neutral-900 p-3 shadow-xl">
-          <GodTools onFollow={(id) => onFollow?.(id)} twins={twins} />
+          <GodTools onFollow={(id) => onFollow?.(id)} twins={twins} demo={demo} />
         </div>
       )}
       <div className="border-b border-neutral-800 px-3 py-2">
@@ -160,8 +163,14 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
           {twins.length === 0 && <p className="text-[11px] text-neutral-500">No agents in the world</p>}
           {twins.map((t) => (
             <div key={t.id} className="group flex items-center justify-between gap-2 py-0.5">
-              <span className="truncate text-xs text-neutral-300">{t.name}</span>
-              {confirmId === t.id ? (
+              <button
+                type="button"
+                onClick={() => onProfile?.(t.id)}
+                className="min-w-0 flex-1 truncate text-left text-xs text-neutral-300 hover:text-neutral-100"
+              >
+                {t.name}
+              </button>
+              {!demo && (confirmId === t.id ? (
                 <span className="flex items-center gap-1 text-[10px] text-neutral-400">
                   Remove?
                   <button
@@ -190,10 +199,10 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, 
                 >
                   <X size={11} />
                 </button>
-              )}
+              ))}
             </div>
           ))}
-          {twins.length > 0 && (
+          {!demo && twins.length > 0 && (
             confirmAll ? (
               <span className="mt-1 flex items-center gap-1 text-[10px] text-neutral-400">
                 Remove all?

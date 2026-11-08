@@ -45,6 +45,14 @@ export function createDb(path: string) {
       summary TEXT NOT NULL, ts TEXT NOT NULL,
       UNIQUE(runId, sourceUrl, summary)
     );
+    CREATE TABLE IF NOT EXISTS visitors (
+      id TEXT PRIMARY KEY, ip TEXT NOT NULL, msgs INTEGER NOT NULL DEFAULT 0,
+      twinId TEXT, createdAt TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS visitor_subjects (
+      visitorId TEXT NOT NULL, subjectId TEXT NOT NULL,
+      PRIMARY KEY (visitorId, subjectId)
+    );
   `);
   for (const stmt of [
     "ALTER TABLE subjects ADD COLUMN consent INTEGER NOT NULL DEFAULT 1",
@@ -187,6 +195,36 @@ export function createDb(path: string) {
     },
     getFindings(subjectId: string) {
       return db.prepare("SELECT * FROM findings WHERE subjectId=?").all(subjectId) as any[];
+    },
+    getVisitor(id: string) {
+      return db.prepare("SELECT * FROM visitors WHERE id=?").get(id) as
+        | { id: string; ip: string; msgs: number; twinId: string | null; createdAt: string }
+        | undefined;
+    },
+    touchVisitor(id: string, ip: string) {
+      db.prepare(
+        "INSERT INTO visitors (id,ip,msgs,twinId,createdAt) VALUES (?,?,0,NULL,?) " +
+        "ON CONFLICT(id) DO UPDATE SET ip=excluded.ip"
+      ).run(id, ip, new Date().toISOString());
+      return this.getVisitor(id)!;
+    },
+    incVisitorMsgs(id: string) {
+      db.prepare("UPDATE visitors SET msgs=msgs+1 WHERE id=?").run(id);
+    },
+    setVisitorTwin(id: string, twinId: string) {
+      db.prepare("UPDATE visitors SET twinId=? WHERE id=?").run(twinId, id);
+    },
+    countAgentsByIp(ip: string): number {
+      return (db.prepare("SELECT COUNT(*) AS n FROM visitors WHERE ip=? AND twinId IS NOT NULL").get(ip) as any).n;
+    },
+    addVisitorSubject(visitorId: string, subjectId: string) {
+      db.prepare("INSERT OR IGNORE INTO visitor_subjects (visitorId,subjectId) VALUES (?,?)").run(visitorId, subjectId);
+    },
+    listVisitorSubjects(visitorId: string): string[] {
+      return (db.prepare("SELECT subjectId FROM visitor_subjects WHERE visitorId=?").all(visitorId) as any[]).map((r) => r.subjectId);
+    },
+    countTwins(): number {
+      return (db.prepare("SELECT COUNT(*) AS n FROM twins").get() as any).n;
     },
   };
 }

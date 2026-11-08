@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { MessageSquare, SquarePen, Globe2, PanelLeftClose, PanelLeftOpen, Activity, Trash2, Check } from "lucide-react";
 import { cn } from "./utils";
-import { ORCH } from "../lib";
+import { ORCH, useDemoStatus } from "../lib";
 import { useChats, newChat, selectChat, deleteChat, type Session } from "../chats";
 
 const NAV = [
@@ -72,6 +72,7 @@ export default function Sidebar() {
   const [open, setOpen] = useState(true);
   const [status, setStatus] = useState<any>();
   const { sessions, activeId } = useChats();
+  const demo = useDemoStatus();
 
   useEffect(() => {
     const load = () => fetch(`${ORCH}/status`).then((r) => r.json()).then(setStatus).catch(() => {});
@@ -112,9 +113,10 @@ export default function Sidebar() {
       <div className="px-2 pt-2">
         <button
           onClick={() => { newChat(); router.push("/"); }}
+          disabled={demo.demo && demo.hasAgent}
           aria-label="New chat"
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg border border-neutral-800 px-2 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-900",
+            "flex w-full items-center gap-3 rounded-lg border border-neutral-800 px-2 py-2 text-sm text-neutral-300 transition-colors hover:bg-neutral-900 disabled:opacity-40 disabled:hover:bg-transparent",
             !open && "justify-center"
           )}
         >

@@ -31,7 +31,8 @@ export default function SubjectPage() {
         <button
           onClick={async () => {
             const res = await fetch(`${ORCH}/subjects/${id}/pipeline`, {
-              method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+              method: "POST", headers: { "Content-Type": "application/json" },
+              credentials: "include", body: "{}",
             });
             setBuilt(res.ok ? "twin built" : `error ${res.status}`);
           }}

@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { ORCH, AgentRun } from "./lib";
+import { ORCH, AgentRun, Persona, useDemoStatus, demoRefresh, DEMO_ERROR } from "./lib";
 import { useChats, appendMessage, type Msg } from "./chats";
 import PromptComposer from "@/components/ui/prompt-composer";
 import AgentGrid from "./components/AgentGrid";
 import InstantFindings from "./components/InstantFindings";
+import { Sparkles } from "lucide-react";
 
 const inflight = new Map<string, AbortController>();
 
@@ -15,6 +16,10 @@ export default function ChatPage() {
   const scroll = useRef<HTMLDivElement>(null);
   const generating = !!activeId && inflightIds.has(activeId);
   const prevSid = useRef<string | null | undefined>(undefined);
+  const demo = useDemoStatus();
+  const [twin, setTwin] = useState<Persona | null>(null);
+  const [twinErr, setTwinErr] = useState("");
+  const [twinPending, setTwinPending] = useState(false);
 
   useEffect(() => {
     if (!scroll.current) return;
@@ -35,12 +40,22 @@ export default function ChatPage() {
       const res = await fetch(`${ORCH}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ messages: history }),
         signal: ac.signal,
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        if (j?.code && DEMO_ERROR[j.code]) {
+          appendMessage(sid, { role: "assistant", content: DEMO_ERROR[j.code] });
+          demoRefresh();
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
       const data: { reply: string; runs: AgentRun[] } = await res.json();
       appendMessage(sid, { role: "assistant", content: data.reply, runIds: data.runs?.map((r) => r.id), instant: (data as any).instant });
+      demoRefresh();
     } catch (e: any) {
       if (e?.name !== "AbortError")
         appendMessage(sid, { role: "assistant", content: `Error: ${e?.message ?? e}` });
@@ -50,11 +65,50 @@ export default function ChatPage() {
     }
   }
 
+  async function turnIntoAgent() {
+    setTwinPending(true);
+    setTwinErr("");
+    try {
+      const res = await fetch(`${ORCH}/twins/from-chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          messages: messages.map(({ role, content }) => ({ role, content })).slice(-20),
+        }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(DEMO_ERROR[j?.code] ?? j?.error ?? `HTTP ${res.status}`);
+      setTwin(j);
+      demoRefresh();
+    } catch (e: any) {
+      setTwinErr(e?.message ?? String(e));
+    } finally {
+      setTwinPending(false);
+    }
+  }
+
   const empty = messages.length === 0;
-  const composer = (
+  const hasAssistant = messages.some((m) => m.role === "assistant");
+  const blocked = demo.demo && !demo.canChat;
+  const composer = blocked ? (
+    <div className="mx-auto max-w-2xl rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-3 text-sm text-neutral-400">
+      {demo.hasAgent ? (
+        <>
+          One agent per visitor in this demo —{" "}
+          <a href={`/world?focus=${demo.twinId ?? ""}`} className="text-sky-300 hover:underline">
+            {demo.twinName ?? "your agent"}
+          </a>{" "}
+          is already in the <a href="/world" className="text-sky-300 hover:underline">world</a>.
+        </>
+      ) : (
+        "Chat limit reached for this demo — visit the world to see the agents."
+      )}
+    </div>
+  ) : (
     <PromptComposer
       models={[]}
-      placeholder="Ask anything, or ask for agents…"
+      placeholder="Ask anything — research a person, company or idea…"
       maxLength={2000}
       isGenerating={generating}
       onSend={send}
@@ -62,6 +116,34 @@ export default function ChatPage() {
       className="max-w-2xl mx-auto"
     />
   );
+
+  const agentCard = twin ? (
+    <div className="mx-auto max-w-2xl rounded-2xl border border-emerald-900/60 bg-emerald-950/30 px-4 py-3">
+      <p className="text-sm text-emerald-200">
+        <span className="font-medium">{twin.name}</span> joined the world.
+      </p>
+      <a
+        href={`/world?focus=${twin.id}`}
+        className="mt-1 inline-block text-xs text-sky-300 hover:underline"
+      >
+        Watch them in the pixel world →
+      </a>
+    </div>
+  ) : (
+    <div className="mx-auto max-w-2xl">
+      {twinErr && <p className="mb-1 text-xs text-red-400">{twinErr}</p>}
+      <button
+        type="button"
+        onClick={turnIntoAgent}
+        disabled={twinPending || !hasAssistant || demo.hasAgent}
+        className="flex items-center gap-2 rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-2.5 text-sm text-neutral-300 transition-colors hover:bg-neutral-800 disabled:opacity-40"
+      >
+        <Sparkles size={14} className="text-amber-300" />
+        {twinPending ? "Creating your agent…" : "Turn this chat into an agent"}
+      </button>
+    </div>
+  );
+  const showAgentCard = hasAssistant && !demo.hasAgent && !blocked;
 
   if (empty)
     return (
@@ -93,6 +175,7 @@ export default function ChatPage() {
           {generating && <p className="animate-pulse text-sm text-neutral-500">Thinking…</p>}
         </div>
       </div>
+      {(showAgentCard || twin) && <div className="px-4 pb-2">{agentCard}</div>}
       <div className="px-4 pb-2">{composer}</div>
     </div>
   );

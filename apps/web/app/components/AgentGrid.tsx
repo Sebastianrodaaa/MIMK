@@ -146,7 +146,8 @@ function AgentTile({ runId }: { runId: string }) {
     setTwinState("building");
     try {
       const res = await fetch(`${ORCH}/subjects/${run.subjectId}/pipeline`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: "{}",
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: "{}",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setTwinState("done");
@@ -165,6 +166,7 @@ function AgentTile({ runId }: { runId: string }) {
       const res = await fetch(`${ORCH}/runs/${run.id}/twin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ name }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -211,7 +213,7 @@ function AgentTile({ runId }: { runId: string }) {
           {run?.status === "running" && (
             <button
               type="button" aria-label="Stop agent"
-              onClick={() => fetch(`${ORCH}/runs/${runId}`, { method: "DELETE" }).catch(() => {})}
+              onClick={() => fetch(`${ORCH}/runs/${runId}`, { method: "DELETE", credentials: "include" }).catch(() => {})}
               className="rounded-md border border-neutral-700 bg-neutral-900/90 p-1 text-neutral-400 hover:text-red-300"
             >
               <X size={12} />

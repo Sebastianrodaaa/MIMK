@@ -13,6 +13,10 @@ primary_region = 'iad'
   NEXT_PUBLIC_ORCHESTRATOR_URL = '/orch'
   NEXT_TELEMETRY_DISABLED = '1'
   PORT = '7860'
+  DEMO_MODE = '1'
+  DEMO_IP_CAP = '3'
+  DEMO_MAX_TWINS = '40'
+  DEMO_CHAT_MSG_CAP = '30'
 
 [[mounts]]
   source = 'data'

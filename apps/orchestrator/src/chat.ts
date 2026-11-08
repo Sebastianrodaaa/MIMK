@@ -1,14 +1,17 @@
 export type SpawnTask = string | { task: string; person: string };
 
 export const CHAT_SYSTEM_PROMPT =
-  `You are MIMK's assistant. Chat naturally and concisely. If — and only if — the user asks you to do something ` +
-  `that needs a computer/browser or explicitly asks for agents, append exactly one block at the very end of your ` +
+  `You are MIMK's assistant — a general assistant that can chat about anything, answer questions, help with ` +
+  `tasks, and research people, companies and businesses. Chat naturally and concisely. If — and only if — the ` +
+  `user asks you to do something that needs a computer/browser or explicitly asks for agents, append exactly one ` +
+  `block at the very end of your ` +
   `reply: <spawn_agents>{"tasks":["<self-contained task for agent 1>", ...]}</spawn_agents> — one task per agent, ` +
   `max 4, each task fully self-contained (agents share no context). If the user asks for N agents on one goal, ` +
   `write N tasks (split the goal sensibly or give each the same goal). ` +
-  `When the user asks you to research / look up / find information about a specific person, emit an object task ` +
-  `{"task": "<extra instructions or empty>", "person": "<full name>"} — one object per agent; for N agents on one ` +
-  `person emit N objects, optionally splitting angles in "task" (e.g. "focus on professional background"). ` +
+  `When the user asks you to research / look up / find information about a specific named entity — a person, ` +
+  `company or business — emit an object task ` +
+  `{"task": "<extra instructions or empty>", "person": "<entity name>"} — one object per agent; for N agents on one ` +
+  `entity emit N objects, optionally splitting angles in "task" (e.g. "focus on professional background"). ` +
   `Use plain string tasks for everything else. Never emit the block for ordinary conversation.`;
 
 const SPAWN_RE = /<spawn_agents>([\s\S]*?)(?:<\/spawn_agents>|$)/;

@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ORCH, Persona } from "../lib";
+import { ORCH, Persona, useDemoStatus } from "../lib";
 import WorldChat from "../components/WorldChat";
+import ProfileDrawer from "../components/ProfileDrawer";
 
 
 const OFFICE_URL = process.env.NEXT_PUBLIC_OFFICE_URL || "http://127.0.0.1:3200";
@@ -20,6 +21,10 @@ export default function World() {
   const toolSeq = useRef(0);
   const [ready, setReady] = useState(false);
   const [personas, setPersonas] = useState<Persona[]>([]);
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const demo = useDemoStatus();
+  const personasRef = useRef<Persona[]>([]);
+  personasRef.current = personas;
 
   const post = (msg: Record<string, unknown>) => frame.current?.contentWindow?.postMessage(msg, "*");
   const api = {
@@ -40,6 +45,12 @@ export default function World() {
   const onFollow = (personaId: string | null) => {
     post({ type: "mimkFollowAgent", id: personaId ? officeIdFor(personaId) : null });
   };
+  const followRef = useRef(onFollow);
+  followRef.current = onFollow;
+  const openProfile = useCallback((pid: string | null) => {
+    setProfileId(pid);
+    if (pid) followRef.current(pid);
+  }, []);
   const sayRef = useRef(api.say);
   sayRef.current = api.say;
   const onSpeak = useCallback((pid: string, text: string) => sayRef.current(pid, text), []);
@@ -47,7 +58,7 @@ export default function World() {
   useEffect(() => {
     const deleteTwin = (pid: string | undefined) => {
       if (!pid) return;
-      void fetch(`${ORCH}/twins/${pid}`, { method: "DELETE" })
+      void fetch(`${ORCH}/twins/${pid}`, { method: "DELETE", credentials: "include" })
         .then(() => syncRef.current())
         .catch(() => {});
     };
@@ -57,6 +68,12 @@ export default function World() {
         // The office just booted — wipe any leftover characters (remounted id
         // mappings, stale sessions) so the roster is the only source of truth.
         post({ type: "mimkClearAgents" });
+      }
+      if (e.data?.type === "mimkAgentSelect") {
+        const pid = e.data.id == null
+          ? null
+          : personasRef.current.find((p) => officeIdFor(p.id) === e.data.id)?.id ?? null;
+        openProfile(pid);
       }
       if (e.data?.type === "mimkAgentClose") {
         let pid = [...known.current].find((p) => officeIdFor(p) === e.data.id);
@@ -72,6 +89,9 @@ export default function World() {
     };
     window.addEventListener("message", onMsg);
     const t = setTimeout(() => setReady(true), 4000);
+    // Deep link: /world?focus=<twinId> opens that agent's profile + camera follow
+    const focus = new URLSearchParams(window.location.search).get("focus");
+    if (focus) openProfile(focus);
     return () => { window.removeEventListener("message", onMsg); clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -89,11 +109,11 @@ export default function World() {
   const syncRef = useRef(sync);
   syncRef.current = sync;
   const onRemove = useCallback(
-    async (id: string) => { await fetch(`${ORCH}/twins/${id}`, { method: "DELETE" }).catch(() => {}); syncRef.current(); },
+    async (id: string) => { await fetch(`${ORCH}/twins/${id}`, { method: "DELETE", credentials: "include" }).catch(() => {}); syncRef.current(); },
     []
   );
   const onRemoveAll = useCallback(
-    async () => { await fetch(`${ORCH}/twins`, { method: "DELETE" }).catch(() => {}); syncRef.current(); },
+    async () => { await fetch(`${ORCH}/twins`, { method: "DELETE", credentials: "include" }).catch(() => {}); syncRef.current(); },
     []
   );
 
@@ -110,7 +130,7 @@ export default function World() {
   }, [ready, sync]);
 
   return (
-    <main className="flex gap-4 h-[calc(100vh-3rem)]">
+    <main className="relative flex gap-4 h-[calc(100vh-3rem)]">
       <iframe
         ref={frame}
         src={`${OFFICE_URL}?embed=1`}
@@ -118,8 +138,9 @@ export default function World() {
         className="flex-1 min-w-0 h-full rounded-lg border border-neutral-800 bg-black"
       />
       <div className="flex w-96 shrink-0 flex-col gap-2">
-        <WorldChat onSpeak={onSpeak} twins={personas} onRemove={onRemove} onRemoveAll={onRemoveAll} onFollow={onFollow} />
+        <WorldChat onSpeak={onSpeak} twins={personas} onRemove={onRemove} onRemoveAll={onRemoveAll} onFollow={onFollow} onProfile={openProfile} demo={demo.demo} />
       </div>
+      {profileId && <ProfileDrawer twinId={profileId} onClose={() => setProfileId(null)} />}
     </main>
   );
 }

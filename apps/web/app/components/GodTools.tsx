@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { ChevronDown, Crown, Zap } from "lucide-react";
 import { ORCH, WorldState } from "../lib";
 
-export default function GodTools({ onFollow, twins: propTwins }: {
+export default function GodTools({ onFollow, twins: propTwins, demo }: {
   onFollow: (personaId: string | null) => void;
   twins?: { id: string; name: string }[];
+  demo?: boolean;
 }) {
   const [tab, setTab] = useState<"event" | "goal" | "conflict" | "whisper" | "state">("event");
   const [open, setOpen] = useState(false);
@@ -25,7 +26,8 @@ export default function GodTools({ onFollow, twins: propTwins }: {
     setPending(true); setErr("");
     try {
       const res = await fetch(`${ORCH}/world/god`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        credentials: "include", body: JSON.stringify(body),
       });
       const j = await res.json();
       if (!res.ok) throw new Error(Array.isArray(j.error) ? j.error.join(", ") : j.error ?? `HTTP ${res.status}`);
@@ -66,6 +68,19 @@ export default function GodTools({ onFollow, twins: propTwins }: {
       {open && (
         <div className="space-y-2 px-3 pb-3">
           {err && <p className="text-[11px] text-red-400">{err}</p>}
+          <div className="flex items-center gap-1.5">
+            {input(eventText, setEventText, "Event text (or pick a preset)")}
+            {btn("Post", () => { god({ op: "event", text: eventText }); setEventText(""); }, !eventText.trim())}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {(["crisis", "rumor", "windfall", "deadline"] as const).map((p) => (
+              <button key={p} onClick={() => god({ op: "event", preset: p })} disabled={pending}
+                className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] capitalize text-neutral-400 hover:text-neutral-200">
+                {p}
+              </button>
+            ))}
+          </div>
+          {!demo && (<>
           <div className="flex flex-wrap items-center gap-1.5">
             {btn(state?.director.enabled ? "Pause director" : "Resume director", () => god({ op: "director", enabled: !state?.director.enabled }))}
             <select value={state?.director.intervalSec ?? 45} onChange={(e) => god({ op: "director", intervalSec: Number(e.target.value) })}
@@ -78,18 +93,6 @@ export default function GodTools({ onFollow, twins: propTwins }: {
               <option value="">Overview</option>
               {twins.map((t) => <option key={t.id} value={t.id}>Follow {t.name}</option>)}
             </select>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {input(eventText, setEventText, "Event text (or pick a preset)")}
-            {btn("Post", () => { god({ op: "event", text: eventText }); setEventText(""); }, !eventText.trim())}
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {(["crisis", "rumor", "windfall", "deadline"] as const).map((p) => (
-              <button key={p} onClick={() => god({ op: "event", preset: p })} disabled={pending}
-                className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] capitalize text-neutral-400 hover:text-neutral-200">
-                {p}
-              </button>
-            ))}
           </div>
           <div className="flex items-center gap-1.5">
             {sel(goalPersona, setGoalPersona, "Goal for…")}
@@ -131,6 +134,7 @@ export default function GodTools({ onFollow, twins: propTwins }: {
               ))}
             </div>
           )}
+          </>)}
         </div>
       )}
     </div>

@@ -1,9 +1,9 @@
 import express from "express";
 import { z } from "zod";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import {
-  CreateSubjectSchema, FindingSchema,
-  type AgentRun, type Finding, type Persona, type SimEvent,
+  CreateSubjectSchema, FindingSchema, filterSensitive,
+  type AgentRun, type Finding, type Persona, type SimEvent, type Subject,
 } from "@mimk/shared";
 import { buildDossier, buildPersona, fixturePersona, type ChatFn } from "@mimk/twin";
 import type { Db } from "./db.js";
@@ -40,6 +40,7 @@ export interface Deps {
   director?: { autostart?: boolean; intervalMs?: number };
   status?: () => Record<string, unknown>;
   worldDelayMs?: number;
+  demo?: { ipCap: number; maxTwins: number; chatMsgCap: number; adminToken?: string };
 }
 
 const sse = (res: express.Response) => {
@@ -95,6 +96,15 @@ export function createApp(deps: Deps) {
       return (t as any)[k];
     },
   });
+  const demo = deps.demo;
+  const isAdmin = (req: express.Request) => {
+    if (!demo?.adminToken) return false;
+    const tok = req.header("x-admin-token");
+    if (!tok) return false;
+    const a = Buffer.from(tok);
+    const b = Buffer.from(demo.adminToken);
+    return a.length === b.length && timingSafeEqual(a, b);
+  };
   const autoTwinInflight = new Set<string>();
   const autoTwinDone = new Set<string>();
   const refreshedSubjects = new Set<string>();
@@ -116,7 +126,7 @@ export function createApp(deps: Deps) {
     // respect removal: deterministic persona id is tombstoned on deleteTwin
     const personaId = (await import("node:crypto")).createHash("sha1").update(subject.id).digest("hex").slice(0, 12);
     const removed = (db as any).isDeletedTwin?.(personaId);
-    if (!existing && count >= 3 && !removed && !autoTwinDone.has(subject.id)) {
+    if (!demo && !existing && count >= 3 && !removed && !autoTwinDone.has(subject.id)) {
       autoTwinInflight.add(subject.id);
       autoTwinDone.add(subject.id); // once-ever per subject — even if the build errors
       void (async () => {
@@ -280,10 +290,17 @@ export function createApp(deps: Deps) {
   }
 
   const app = express();
-  app.use((_req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+  app.use((req, res, next) => {
+    // reflect the origin (instead of *) so credentialed cross-origin calls
+    // (visitor cookie, iframe embed) still work in dev
+    const origin = req.header("origin");
+    res.setHeader("Access-Control-Allow-Origin", origin && !demo ? origin : "*");
+    if (origin && !demo) {
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Vary", "Origin");
+    }
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-admin-token, x-visitor-id, x-visitor-ip");
     next();
   });
   app.options("*path", (_req, res) => res.end());
@@ -298,6 +315,65 @@ export function createApp(deps: Deps) {
       ...(deps.status?.() ?? {}),
     }));
   app.use(express.json());
+
+  const deny = (res: express.Response, code: string, message: string) =>
+    res.status(403).json({ error: "demo_limit", code, message });
+
+  // Hosted-demo policy: visitors (identified by the gateway-injected
+  // x-visitor-id / x-visitor-ip headers) get a read-only world with a small
+  // quota of chat messages and exactly one agent. Admin token bypasses all.
+  if (demo) {
+    app.use((req, res, next) => {
+      if (req.method !== "POST" && req.method !== "DELETE") return next();
+      if (isAdmin(req)) return next();
+      const vid = req.header("x-visitor-id");
+      const ip = req.header("x-visitor-ip") ?? "";
+      if (!vid)
+        return deny(res, "read_only", "The hosted demo is read-only without a visitor session.");
+      const p = req.path;
+      if (p === "/world/chat") return next();
+      if (p === "/world/god")
+        return req.body?.op === "event"
+          ? next()
+          : deny(res, "read_only", "Only world events are available in the hosted demo.");
+      if (p === "/sim/inject") return next();
+      if (p === "/twins/from-chat") return next(); // gated in the handler
+      if (/^\/twins\/[^/]+\/chat$/.test(p)) return next();
+      if (p === "/chat" || p === "/agents") {
+        const v = db.touchVisitor(vid, ip);
+        if (v.twinId)
+          return deny(res, "already_created", "You already created an agent — the demo allows one per visitor.");
+        if (v.msgs >= demo.chatMsgCap)
+          return deny(res, "chat_cap", "Chat message limit reached for the hosted demo.");
+        db.incVisitorMsgs(vid);
+        return next();
+      }
+      return deny(res, "read_only", "The hosted demo is read-only — you can chat and create one agent.");
+    });
+  }
+
+  app.get("/demo/me", (req, res) => {
+    if (!demo) return res.json({ demo: false, canChat: true, hasAgent: false });
+    if (isAdmin(req))
+      return res.json({ demo: true, admin: true, canChat: true, hasAgent: false, chatMsgsLeft: demo.chatMsgCap, worldFull: false, ipBlocked: false });
+    const vid = req.header("x-visitor-id");
+    const ip = req.header("x-visitor-ip") ?? "";
+    const v = vid ? db.getVisitor(vid) : undefined;
+    const hasAgent = !!v?.twinId;
+    const twin = v?.twinId ? db.getTwin(v.twinId) : undefined;
+    const worldFull = db.countTwins() >= demo.maxTwins;
+    const ipBlocked = db.countAgentsByIp(ip) >= demo.ipCap;
+    res.json({
+      demo: true,
+      canChat: !hasAgent && (v?.msgs ?? 0) < demo.chatMsgCap,
+      hasAgent,
+      ...(v?.twinId ? { twinId: v.twinId } : {}),
+      ...(twin ? { twinName: twin.name } : {}),
+      chatMsgsLeft: Math.max(0, demo.chatMsgCap - (v?.msgs ?? 0)),
+      worldFull,
+      ipBlocked,
+    });
+  });
 
   app.get("/world/feed", (req, res) => {
     sse(res);
@@ -402,7 +478,14 @@ export function createApp(deps: Deps) {
       }
     }
     if (!reply && actions.length) reply = `Done: ${actions.map((a) => a.type).join(", ")}…`;
-    for (const a of actions) void execWorldAction(a).catch(() => {});
+    const DEMO_BANNED = new Set(["remove", "director", "goal", "conflict", "simulate"]);
+    for (const a of actions) {
+      if (demo && !isAdmin(req) && DEMO_BANNED.has(a.type)) {
+        bus.publish({ personaId: "_god", kind: "post", text: `The "${a.type}" action isn't available in the hosted demo.` }, nameOf);
+        continue;
+      }
+      void execWorldAction(a).catch(() => {});
+    }
     res.json({ reply, actions });
   });
 
@@ -585,6 +668,7 @@ export function createApp(deps: Deps) {
       return res.status(400).json({ error: "tasks must be 1..4 non-empty strings or {task, person} objects" });
     const capacity = maxParallel - runningCount();
     if (capacity <= 0) return res.status(429).json({ error: "no agent capacity" });
+    const visitorId = demo ? req.header("x-visitor-id") : undefined;
     const runs: AgentRun[] = [];
     const instants: any[] = [];
     for (const task of (tasks as SpawnTask[]).slice(0, capacity)) {
@@ -592,6 +676,7 @@ export function createApp(deps: Deps) {
         const r = await spawnTaskRun(task);
         runs.push(r.run);
         if (r.instant) instants.push(r.instant);
+        if (visitorId && r.run.subjectId !== "_chat") db.addVisitorSubject(visitorId, r.run.subjectId);
       } catch (e: any) {
         return res.status(500).json({ error: String(e?.message ?? e), runs });
       }
@@ -608,6 +693,7 @@ export function createApp(deps: Deps) {
     if (!lastUser) return res.status(400).json({ error: "messages must include a user message" });
 
     const capacity = Math.max(0, maxParallel - runningCount());
+    const visitorId = demo ? req.header("x-visitor-id") : undefined;
     const spawnAll = async (tasks: SpawnTask[]) => {
       const runs: AgentRun[] = [];
       const instants: any[] = [];
@@ -616,6 +702,7 @@ export function createApp(deps: Deps) {
           const r = await spawnTaskRun(task);
           runs.push(r.run);
           if (r.instant) instants.push(r.instant);
+          if (visitorId && r.run.subjectId !== "_chat") db.addVisitorSubject(visitorId, r.run.subjectId);
         } catch (e: any) {
           return { runs, error: String(e?.message ?? e) };
         }
@@ -868,6 +955,139 @@ export function createApp(deps: Deps) {
     if (!db.deleteTwin(req.params.id)) return res.status(404).json({ error: "not found" });
     bus.publish({ personaId: "_god", kind: "post", text: `${twin!.name} left the world.` }, nameOf);
     res.json({ ok: true });
+  });
+
+  const creating = new Set<string>();
+  const KINDS = new Set(["person", "company", "business", "task", "idea", "other"]);
+  app.post("/twins/from-chat", async (req, res) => {
+    const messages = (Array.isArray(req.body?.messages) ? req.body.messages : [])
+      .slice(-20)
+      .filter((m: any) => (m?.role === "user" || m?.role === "assistant") && typeof m?.content === "string")
+      .map((m: any) => ({ role: m.role, content: String(m.content).slice(0, 2000) }));
+    const lastUser = [...messages].reverse().find((m: any) => m.role === "user");
+    if (!lastUser) return res.status(400).json({ error: "messages must include a user message" });
+
+    let visitorId: string | undefined;
+    let visitorSubjects: string[] = [];
+    if (demo && !isAdmin(req)) {
+      visitorId = req.header("x-visitor-id")!;
+      const ip = req.header("x-visitor-ip") ?? "";
+      const v = db.touchVisitor(visitorId, ip);
+      if (v.twinId)
+        return deny(res, "already_created", "You already created an agent — the demo allows one per visitor.");
+      if (db.countAgentsByIp(ip) >= demo.ipCap)
+        return deny(res, "ip_cap", "Too many agents were already created from this network.");
+      if (db.countTwins() >= demo.maxTwins)
+        return deny(res, "world_full", "The demo world is full right now — try again later.");
+      if (creating.has(visitorId))
+        return deny(res, "already_created", "Your agent is already being created.");
+      creating.add(visitorId);
+      res.on("close", () => creating.delete(visitorId!));
+      visitorSubjects = db.listVisitorSubjects(visitorId);
+    }
+
+    const transcript = messages.map((m: any) => `${m.role}: ${m.content}`).join("\n").slice(0, 8000);
+    // (a) extract what this chat is about
+    let name = "";
+    let kind = "other";
+    let description = "";
+    if (chat) {
+      try {
+        const out = await chat([
+          {
+            role: "system",
+            content:
+              "Extract the entity or topic this conversation is about. Reply with raw JSON only: " +
+              '{"name":"the entity or topic, <=60 chars","kind":"person|company|business|task|idea|other",' +
+              '"description":"what it is and what the user cared about, <=400 chars"}. ' +
+              'If the user mostly asked about themselves, use name "Visitor Agent".',
+          },
+          { role: "user", content: transcript },
+        ]);
+        const m = out.match(/\{[\s\S]*\}/);
+        if (m) {
+          const p = JSON.parse(m[0]);
+          if (typeof p.name === "string" && p.name.trim()) name = p.name;
+          if (typeof p.kind === "string" && KINDS.has(p.kind)) kind = p.kind;
+          if (typeof p.description === "string") description = p.description;
+        }
+      } catch {}
+    }
+    name = filterSensitive(name).trim().slice(0, 60);
+    description = filterSensitive(description).trim().slice(0, 400);
+    if (!name) {
+      const subjectNames = visitorSubjects.map((id) => db.getSubject(id)?.name).filter(Boolean) as string[];
+      const phrases = [...lastUser.content.matchAll(/[A-Z][\w'.-]+(?:\s+[A-Z][\w'.-]+){0,3}/g)]
+        .map((m) => ({ text: m[0], at: m.index ?? 0 }))
+        // prefer a real entity phrase over a capitalized sentence opener
+        .filter((p) => p.text.includes(" ") || p.at > 0);
+      name = (subjectNames.at(-1) ?? phrases[0]?.text ?? "Visitor Agent").slice(0, 60);
+    }
+
+    // (b) findings the visitor's research already produced
+    let subject: Subject | undefined;
+    let findings: Finding[] = [];
+    const subjectIds = demo
+      ? visitorSubjects
+      : db.listSubjects().filter((s) => s.name.toLowerCase() === name.toLowerCase()).map((s) => s.id);
+    for (const sid of subjectIds) {
+      const f = db.getFindings(sid);
+      if (f.length) { subject = db.getSubject(sid)!; findings = f; break; }
+    }
+
+    // (c) dossier — real research when it exists, synthetic otherwise
+    let dossier;
+    if (subject && findings.length) {
+      dossier = buildDossier(subject.id, findings);
+      if (description) dossier.summary = `${dossier.summary} ${description}`.trim().slice(0, 600);
+    } else {
+      const now = new Date().toISOString();
+      subject = {
+        id: randomUUID(), type: "public_figure", name,
+        approvedSources: ["chat"], consent: true,
+        consentedAt: now, handles: [], createdAt: now,
+      };
+      db.addSubject(subject);
+      dossier = {
+        subjectId: subject.id,
+        facts: [{ claim: description || `A visitor asked about ${name}.`, sourceUrl: "", confidence: 0.5 }],
+        summary: (description || `${name}, created from a visitor chat.`).slice(0, 600),
+      };
+    }
+    db.saveDossier(dossier);
+
+    // (d) persona — embodies the thing when it isn't a person
+    const persona = await buildPersona(dossier, name, chat, { kind, conversation: transcript });
+    db.saveTwin(persona);
+    if (demo && visitorId) db.setVisitorTwin(visitorId, persona.id);
+    bus.publish({ personaId: "_god", kind: "post", text: `${name} joined the world` }, nameOf);
+    research.publish({
+      runId: `from-chat:${persona.id}`, subjectId: subject.id, subject: name,
+      kind: "world", text: `${name} joined the world`,
+    });
+    res.status(201).json(persona);
+  });
+
+  app.get("/twins/:id/profile", (req, res) => {
+    const persona = db.getTwin(req.params.id);
+    if (!persona) return res.status(404).json({ error: "not found" });
+    const d = persona.subjectId ? db.getDossier(persona.subjectId) : undefined;
+    const findings = db.getFindings(persona.subjectId ?? "")
+      .slice(-20)
+      .map((f) => ({ summary: f.summary, sourceUrl: f.sourceUrl, ts: f.ts }));
+    const goals = db.listGoals(false).filter((g: any) => g.personaId === persona.id);
+    const conflicts = db.listConflicts(false)
+      .filter((c: any) => c.aId === persona.id || c.bId === persona.id)
+      .map((c: any) => ({
+        ...c,
+        otherName: db.getTwin(c.aId === persona.id ? c.bId : c.aId)?.name,
+      }));
+    const recent = busHistory().filter((e) => e.personaId === persona.id).slice(-10);
+    res.json({
+      persona,
+      dossier: d ? { summary: d.summary, facts: d.facts } : null,
+      findings, goals, conflicts, recent,
+    });
   });
 
   app.post("/twins/:id/chat", async (req, res) => {

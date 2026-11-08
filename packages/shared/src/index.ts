@@ -90,6 +90,7 @@ export const PersonaSchema = z.object({
     accessory: z.enum(["none", "hat", "glasses", "scarf", "headphones"]),
   }),
   bio: z.string(),
+  kind: z.string().optional(),
 });
 export type Persona = z.infer<typeof PersonaSchema>;
 

@@ -1,5 +1,43 @@
+import { useEffect, useState } from "react";
+
 export const ORCH = process.env.NEXT_PUBLIC_ORCHESTRATOR_URL ?? "http://localhost:4000";
 export const VNC_HOST = process.env.NEXT_PUBLIC_VNC_HOST ?? "localhost";
+
+export type DemoStatus = {
+  demo: boolean;
+  canChat: boolean;
+  hasAgent: boolean;
+  twinId?: string;
+  twinName?: string;
+  chatMsgsLeft?: number;
+  worldFull?: boolean;
+  ipBlocked?: boolean;
+};
+
+export function useDemoStatus(): DemoStatus {
+  const [s, setS] = useState<DemoStatus>({ demo: false, canChat: true, hasAgent: false });
+  useEffect(() => {
+    const load = () =>
+      fetch(`${ORCH}/demo/me`, { credentials: "include" })
+        .then((r) => r.json())
+        .then(setS)
+        .catch(() => {});
+    load();
+    window.addEventListener("mimk:demo-refresh", load);
+    return () => window.removeEventListener("mimk:demo-refresh", load);
+  }, []);
+  return s;
+}
+
+export const demoRefresh = () => window.dispatchEvent(new Event("mimk:demo-refresh"));
+
+export const DEMO_ERROR: Record<string, string> = {
+  already_created: "You already created an agent — the demo allows one per visitor.",
+  ip_cap: "Too many agents were already created from this network.",
+  world_full: "The demo world is full right now — try again later.",
+  chat_cap: "Chat message limit reached for the hosted demo.",
+  read_only: "The hosted demo is read-only.",
+};
 
 export type Subject = {
   id: string;
@@ -41,6 +79,7 @@ export type Persona = {
   relationships: string[];
   avatar: { palette: string[]; accessory: string };
   bio: string;
+  kind?: string;
 };
 export type FeedEvent = {
   id: number;
