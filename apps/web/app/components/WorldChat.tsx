@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { ORCH, FeedEvent, Persona } from "../lib";
+import GodTools from "./GodTools";
+import { Crown } from "lucide-react";
 import { Users, X } from "lucide-react";
 import PromptComposer from "@/components/ui/prompt-composer";
 import { cn } from "@/lib/utils";
@@ -17,12 +19,14 @@ const colorFor = (id: string) => {
   return PALETTE[h % PALETTE.length];
 };
 const SUGGESTIONS = [
-  "Run the simulation",
-  "What if the office Wi-Fi goes down for a week?",
+  "Set a goal for Ada: dig into the latest research",
+  "Make Ada and Marco rivals over the new findings",
+  "Pause the director",
   "Announce: free pizza in the kitchen",
 ];
 
-export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll }: {
+export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll, onFollow }: {
+  onFollow?: (personaId: string | null) => void;
   onSpeak: (personaId: string, text: string) => void;
   twins?: Persona[];
   onRemove?: (id: string) => void;
@@ -33,6 +37,25 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll }
   const [simStatus, setSimStatus] = useState("");
   const [simNotice, setSimNotice] = useState("");
   const [rosterOpen, setRosterOpen] = useState(false);
+  const [godOpen, setGodOpen] = useState(false);
+  const [godInfo, setGodInfo] = useState<{ d: string; c: number }>();
+  useEffect(() => {
+    let stop = false;
+    const poll = () => fetch(`${ORCH}/world/state`).then((r) => r.json()).then((st) => {
+      if (!stop) setGodInfo({ d: `${st.director.enabled ? st.director.intervalSec + "s" : "off"}`, c: st.conflicts.length });
+    }).catch(() => {});
+    poll();
+    const t = setInterval(poll, godOpen ? 4000 : 8000);
+    return () => { stop = true; clearInterval(t); };
+  }, [godOpen]);
+  useEffect(() => {
+    if (!godOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setGodOpen(false); };
+    const onDown = (e: MouseEvent) => { if (!(e.target as HTMLElement)?.closest?.(".god-drawer,.god-btn")) setGodOpen(false); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onDown);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("mousedown", onDown); };
+  }, [godOpen]);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [confirmAll, setConfirmAll] = useState(false);
   const seen = useRef(new Set<number>());
@@ -100,11 +123,24 @@ export default function WorldChat({ onSpeak, twins = [], onRemove, onRemoveAll }
   const empty = items.length === 0;
 
   return (
-    <aside className="flex h-full w-96 shrink-0 flex-col rounded-lg border border-neutral-800 bg-neutral-900/50">
+    <aside className="relative flex h-full w-96 shrink-0 flex-col rounded-lg border border-neutral-800 bg-neutral-900/50">
+      {godOpen && (
+        <div className="god-drawer absolute inset-x-2 bottom-16 z-20 max-h-[55%] overflow-y-auto rounded-lg border border-neutral-700 bg-neutral-900 p-3 shadow-xl">
+          <GodTools onFollow={(id) => onFollow?.(id)} twins={twins} />
+        </div>
+      )}
       <div className="border-b border-neutral-800 px-3 py-2">
         <div className="flex items-baseline justify-between gap-2">
           <h3 className="text-sm font-medium">World chat</h3>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="God mode"
+              className="god-btn flex items-center gap-1 text-[11px] text-neutral-400 hover:text-neutral-200"
+              onClick={() => setGodOpen((o) => !o)}
+            >
+              <Crown size={11} />{godInfo ? `${godInfo.d} · ${godInfo.c} conflict${godInfo.c === 1 ? "" : "s"}` : "God"}
+            </button>
             <button
               type="button"
               aria-label="Agents"

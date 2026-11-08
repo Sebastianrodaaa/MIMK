@@ -1,6 +1,14 @@
 import assert from "node:assert";
 import { readFileSync } from "node:fs";
-import { compactSnapshot } from "../compact.js";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+const tmp = mkdtempSync(join(tmpdir(), "compact-build-"));
+execFileSync("npx", ["tsc", "compact.ts", "--target", "es2022", "--module", "nodenext",
+  "--moduleResolution", "nodenext", "--strict", "--skipLibCheck", "--types", "node", "--outDir", tmp],
+  { cwd: new URL("..", import.meta.url).pathname });
+const { compactSnapshot } = await import(join(tmp, "compact.js"));
 
 const raw = readFileSync(new URL("./fixtures/google-consent-snapshot.json", import.meta.url), "utf8");
 const out = compactSnapshot(raw);
@@ -16,3 +24,4 @@ assert(out.includes("(offscreen)"), "no offscreen marker");
 assert.doesNotThrow(() => compactSnapshot("not json {{{"));
 assert.doesNotThrow(() => compactSnapshot('{"ok":false,"error":{"code":"X","message":"m"}}'));
 console.log(`PASS compact-snapshot (${out.length} chars vs ${raw.length} raw)`);
+rmSync(tmp, { recursive: true, force: true });

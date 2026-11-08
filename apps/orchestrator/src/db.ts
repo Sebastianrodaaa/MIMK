@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
@@ -25,6 +26,17 @@ export function createDb(path: string) {
     CREATE TABLE IF NOT EXISTS twins (
       id TEXT PRIMARY KEY, subjectId TEXT NOT NULL, json TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS goals (
+      id TEXT PRIMARY KEY, personaId TEXT NOT NULL, title TEXT NOT NULL,
+      progress INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active',
+      createdAt TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS conflicts (
+      id TEXT PRIMARY KEY, aId TEXT NOT NULL, bId TEXT NOT NULL, issue TEXT NOT NULL,
+      intensity INTEGER NOT NULL DEFAULT 3, status TEXT NOT NULL DEFAULT 'active',
+      createdAt TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS world_state (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS deleted_twins (
       id TEXT PRIMARY KEY
     );
@@ -110,8 +122,16 @@ export function createDb(path: string) {
         t.id, t.subjectId, JSON.stringify(t));
     },
     deleteTwin(id: string): boolean {
-      const existed = !!db.prepare("SELECT id FROM twins WHERE id=?").get(id);
+      const row = db.prepare("SELECT subjectId FROM twins WHERE id=?").get(id) as any;
+      const existed = !!row;
       db.prepare("INSERT OR IGNORE INTO deleted_twins (id) VALUES (?)").run(id);
+      // also tombstone the deterministic persona id derived from the subject —
+      // auto-twin checks removal by sha1(subjectId), which differs when a
+      // model-built persona overrode its id
+      if (row?.subjectId) {
+        const sid = createHash("sha1").update(row.subjectId).digest("hex").slice(0, 12);
+        db.prepare("INSERT OR IGNORE INTO deleted_twins (id) VALUES (?)").run(sid);
+      }
       db.prepare("DELETE FROM twins WHERE id=?").run(id);
       return existed;
     },
@@ -124,6 +144,34 @@ export function createDb(path: string) {
     },
     isTwinDeleted(id: string): boolean {
       return !!db.prepare("SELECT id FROM deleted_twins WHERE id=?").get(id);
+    },
+    addGoal(g: { id: string; personaId: string; title: string; progress?: number; status?: string; createdAt: string }) {
+      db.prepare("INSERT INTO goals (id,personaId,title,progress,status,createdAt) VALUES (?,?,?,?,?,?)")
+        .run(g.id, g.personaId, g.title, g.progress ?? 0, g.status ?? "active", g.createdAt);
+    },
+    listGoals(activeOnly = true): any[] {
+      return db.prepare(activeOnly ? "SELECT * FROM goals WHERE status='active'" : "SELECT * FROM goals").all() as any[];
+    },
+    updateGoal(id: string, patch: { progress?: number; status?: string }) {
+      if (patch.progress !== undefined) db.prepare("UPDATE goals SET progress=? WHERE id=?").run(patch.progress, id);
+      if (patch.status !== undefined) db.prepare("UPDATE goals SET status=? WHERE id=?").run(patch.status, id);
+    },
+    addConflict(c: { id: string; aId: string; bId: string; issue: string; intensity?: number; status?: string; createdAt: string }) {
+      db.prepare("INSERT INTO conflicts (id,aId,bId,issue,intensity,status,createdAt) VALUES (?,?,?,?,?,?,?)")
+        .run(c.id, c.aId, c.bId, c.issue, c.intensity ?? 3, c.status ?? "active", c.createdAt);
+    },
+    listConflicts(activeOnly = true): any[] {
+      return db.prepare(activeOnly ? "SELECT * FROM conflicts WHERE status='active'" : "SELECT * FROM conflicts").all() as any[];
+    },
+    updateConflict(id: string, patch: { status?: string; intensity?: number }) {
+      if (patch.status !== undefined) db.prepare("UPDATE conflicts SET status=? WHERE id=?").run(patch.status, id);
+      if (patch.intensity !== undefined) db.prepare("UPDATE conflicts SET intensity=? WHERE id=?").run(patch.intensity, id);
+    },
+    getWorldState(key: string): string | undefined {
+      return (db.prepare("SELECT value FROM world_state WHERE key=?").get(key) as any)?.value;
+    },
+    setWorldState(key: string, value: string) {
+      db.prepare("INSERT INTO world_state (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(key, value);
     },
     getTwin(id: string): Persona | undefined {
       const r = db.prepare("SELECT json FROM twins WHERE id=?").get(id) as any;

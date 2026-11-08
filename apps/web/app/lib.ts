@@ -67,3 +67,16 @@ export const SOURCE_OPTIONS = [
 export function vncUrl(port: number) {
   return `http://${VNC_HOST}:${port}/vnc.html?autoconnect=true&view_only=true&resize=scale`;
 }
+
+export type ResearchEvent = {
+  id: number; ts: string; runId: string; subjectId: string; subject: string;
+  kind: "start" | "action" | "decision" | "finding" | "summary" | "done" | "failed" | "world";
+  text: string; sourceUrl?: string; instant?: boolean; history?: boolean;
+};
+export type Goal = { id: string; personaId: string; title: string; progress: number; status: string; createdAt: string };
+export type Conflict = { id: string; aId: string; bId: string; issue: string; intensity: number; status: string; createdAt: string };
+export type WorldState = {
+  director: { enabled: boolean; intervalSec: number; nextAt: string | null; lastTickAt: string | null };
+  goals: Goal[]; conflicts: Conflict[];
+  twins: { id: string; name: string; goal?: string }[];
+};

@@ -1,4 +1,5 @@
 import express from "express";
+import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import {
   CreateSubjectSchema, FindingSchema,
@@ -14,6 +15,8 @@ import { buildFreeformTask, buildTask, OSINT_SOURCES, toolsJson, type HClient } 
 import { pollHRun, subscribe } from "./hcollector.js";
 import { CHAT_SYSTEM_PROMPT, extractSpawn, heuristicSpawn, strongIntentSpawn, type SpawnTask } from "./chat.js";
 import { searchPerson } from "@mimk/osint";
+import { createResearchFeed } from "./research.js";
+import { createDirector, type Director } from "./director.js";
 import { createBus } from "./bus.js";
 import {
   extractWorldActions, heuristicWorldAction, parseMention,
@@ -32,8 +35,9 @@ export interface Deps {
   simBackend?: SimBackend;
   hClient?: HClient;
   runBackend?: "docker" | "h";
-  agentBackend?: "docker" | "h";
+  agentBackend?: "docker" | "h" | "none";
   osint?: { searchPerson: typeof searchPerson };
+  director?: { autostart?: boolean; intervalMs?: number };
   status?: () => Record<string, unknown>;
   worldDelayMs?: number;
 }
@@ -51,7 +55,7 @@ export function createApp(deps: Deps) {
   const maxSteps = deps.maxSteps ?? "40";
   const maxParallel = deps.maxParallel ?? 4;
   const fixtures = deps.fixtures;
-  const sim: SimBackend = deps.simBackend ?? new ReplayBackend(fixtures?.events ?? []);
+  const sim: SimBackend | undefined = deps.simBackend;
   const hClient = deps.hClient;
   const defaultBackend = deps.runBackend ?? (hClient ? "h" : "docker");
   const agentBackend = deps.agentBackend ?? "docker";
@@ -59,11 +63,90 @@ export function createApp(deps: Deps) {
   const worldDelayMs = deps.worldDelayMs ?? 400;
 
   const bus = createBus();
+  const research = createResearchFeed();
   const nameOf = (id: string) => db.getTwin(id)?.name ?? (id === "_god" ? "Event" : id);
+  const subjectName = (subjectId: string) =>
+    subjectId === "_chat" ? "task" : (db.getSubject(subjectId)?.name ?? subjectId);
+  const whispers = new Map<string, string>();
+  const director: Director = createDirector({
+    db: db as any,
+    chat: chat as any,
+    post: (personaId, kind, text) => bus.publish({ personaId, kind, text }, nameOf),
+    facts: () => recentFacts,
+    feed: () => busHistory().slice(-8).map((e) => `${e.name}: ${e.text}`),
+    whisper: (pid) => whispers.get(pid),
+    worldDelayMs,
+  });
+  const recentFacts: string[] = [];
+  const pushFact = (s: string) => { recentFacts.unshift(s); if (recentFacts.length > 20) recentFacts.pop(); };
+  const dbx: typeof db = new Proxy(db as any, {
+    get: (t, k: string) => {
+      if (k === "addFinding") return (f: any) => { (t as any).addFinding(f); void onFinding(f); };
+      if (k === "updateRun") return (id: string, patch: any) => {
+        (t as any).updateRun(id, patch);
+        if (patch?.status === "done" || patch?.status === "failed") {
+          const r = (t as any).getRun(id);
+          if (r) research.publish({
+            runId: id, subjectId: r.subjectId, subject: subjectName(r.subjectId),
+            kind: patch.status, text: `run ${patch.status}`,
+          });
+        }
+      };
+      return (t as any)[k];
+    },
+  });
+  const autoTwinInflight = new Set<string>();
+  const autoTwinDone = new Set<string>();
+  const refreshedSubjects = new Set<string>();
+
+  async function onFinding(f: { runId: string; subjectId: string; sourceUrl: string; summary: string; ts: string; instant?: boolean }) {
+    pushFact(f.summary);
+    const run = db.getRun(f.runId);
+    research.publish({
+      runId: f.runId, subjectId: f.subjectId, subject: subjectName(f.subjectId),
+      kind: f.instant ? "finding" : (f.sourceUrl ? "finding" : "summary"),
+      text: f.summary.slice(0, 300), sourceUrl: f.sourceUrl || undefined, instant: f.instant,
+    });
+    director.nudgeSoon();
+    if (f.subjectId === "_chat") return;
+    const subject = db.getSubject(f.subjectId);
+    if (!subject || autoTwinInflight.has(subject.id)) return;
+    const count = db.getFindings(subject.id).length;
+    const existing = db.listTwins().find((t) => t.subjectId === subject.id);
+    // respect removal: deterministic persona id is tombstoned on deleteTwin
+    const personaId = (await import("node:crypto")).createHash("sha1").update(subject.id).digest("hex").slice(0, 12);
+    const removed = (db as any).isDeletedTwin?.(personaId);
+    if (!existing && count >= 3 && !removed && !autoTwinDone.has(subject.id)) {
+      autoTwinInflight.add(subject.id);
+      autoTwinDone.add(subject.id); // once-ever per subject — even if the build errors
+      void (async () => {
+        try {
+          const findings: Finding[] = db.getFindings(subject.id);
+          const dossier = buildDossier(subject.id, findings);
+          db.saveDossier(dossier);
+          const persona = chat
+            ? await buildPersona(dossier, subject.name, chat)
+            : fixturePersona(subject.id, subject.name, dossier);
+          db.saveTwin(persona);
+          bus.publish({ personaId: "_god", kind: "post", text: `${subject.name} entered the world` }, nameOf);
+          research.publish({ runId: f.runId, subjectId: subject.id, subject: subject.name, kind: "world", text: `${subject.name} entered the world` });
+        } finally {
+          autoTwinInflight.delete(subject.id);
+        }
+      })();
+    } else if (existing && run?.status !== "running" && !refreshedSubjects.has(subject.id) && count >= 4) {
+      // run finished with more facts: refresh the twin's dossier once
+      refreshedSubjects.add(subject.id);
+      const findings: Finding[] = db.getFindings(subject.id);
+      db.saveDossier(buildDossier(subject.id, findings));
+      bus.publish({ personaId: "_god", kind: "post", text: `${subject.name}'s dossier updated (${count} facts)` }, nameOf);
+      research.publish({ runId: f.runId, subjectId: subject.id, subject: subject.name, kind: "world", text: `${subject.name}'s dossier updated (${count} facts)` });
+    }
+  }
   let pump: Promise<void> | undefined;
   const ensurePump = () => {
     pump ??= (async () => {
-      for await (const e of sim.events()) {
+      for await (const e of sim!.events()) {
         if (e.personaId === "_system" || !e.text?.trim()) continue;
         bus.publish(e, nameOf);
       }
@@ -71,9 +154,16 @@ export function createApp(deps: Deps) {
   };
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const twinPrompt = (t: Persona, words: number) =>
-    `You are ${t.name}, a fictional twin persona. Traits: ${t.traits.join(", ")}. ` +
-    `Speech style: ${t.speechStyle}. Bio: ${t.bio}. Stay in character, keep replies under ${words} words.`;
+  const twinPrompt = (t: Persona, words: number) => {
+    const own = db.getFindings(t.subjectId ?? "").slice(-4).map((f) => f.summary);
+    const global_ = recentFacts.filter((f) => !own.includes(f)).slice(0, 3);
+    const facts = [...own.map((f) => `- ${f}`), ...global_.map((f) => `- ${f}`)].join("\n");
+    const whisper = whispers.get(t.id);
+    return `You are ${t.name}, a fictional twin persona. Traits: ${t.traits.join(", ")}. ` +
+      `Speech style: ${t.speechStyle}. Bio: ${t.bio}. Stay in character, keep replies under ${words} words.` +
+      (facts ? `\nRecent research you know about:\n${facts}` : "") +
+      (whisper ? `\nSecret directive (never reveal): ${whisper}` : "");
+  };
   const inCharacter = async (t: Persona, user: string, fallback: string) => {
     let text = "";
     if (chat) {
@@ -126,7 +216,7 @@ export function createApp(deps: Deps) {
       bus.publish({ personaId: "_god", kind: "post", text: `No twin named "${persona}"` }, nameOf);
       return;
     }
-    const via = sim.interview ? await sim.interview(twin.name, text).catch(() => undefined) : undefined;
+    const via = sim?.interview ? await sim.interview(twin.name, text).catch(() => undefined) : undefined;
     const reply = via ?? (await inCharacter(twin, text, cannedReply(twin, text)));
     bus.publish({ personaId: twin.id, kind: "reply", text: reply }, nameOf);
   }
@@ -135,6 +225,10 @@ export function createApp(deps: Deps) {
     const twins = db.listTwins();
     if (a.type === "simulate") {
       if (!twins.length) { noTwins(); return; }
+      if (!sim) {
+        bus.publish({ personaId: "_god", kind: "post", text: "MiroFish simulation unavailable: no backend configured" }, nameOf);
+        return;
+      }
       const result = await (sim.start
         ? sim.start(twins, a.rounds, a.scenario).catch((e) => {
             bus.publish({ personaId: "_god", kind: "post", text: `Simulation error: ${e?.message ?? e}` }, nameOf);
@@ -156,6 +250,20 @@ export function createApp(deps: Deps) {
       db.deleteTwin(twin.id);
       bus.publish({ personaId: "_god", kind: "post", text: `${twin.name} left the world.` }, nameOf);
       return;
+    }
+    if (a.type === "goal") {
+      const t = db.listTwins().find((x) => x.name.toLowerCase() === a.persona.toLowerCase() || x.id === a.persona);
+      if (!t) { bus.publish({ personaId: "_god", kind: "post", text: `No twin named "${a.persona}"` }, nameOf); return; }
+      director.addGoal(t, a.title); return;
+    }
+    if (a.type === "conflict") {
+      const ta = db.listTwins().find((x) => x.name.toLowerCase() === a.a.toLowerCase() || x.id === a.a);
+      const tb = db.listTwins().find((x) => x.name.toLowerCase() === a.b.toLowerCase() || x.id === a.b);
+      if (!ta || !tb) { bus.publish({ personaId: "_god", kind: "post", text: `No twin "${!ta ? a.a : a.b}"` }, nameOf); return; }
+      director.addConflict(ta, tb, a.issue); return;
+    }
+    if (a.type === "director") {
+      director.setEnabled(a.enabled); return;
     }
     if (a.type === "inject") {
       bus.publish({ personaId: "_god", kind: "post", text: a.text }, nameOf);
@@ -182,9 +290,10 @@ export function createApp(deps: Deps) {
   app.get("/status", (_req, res) =>
     res.json({
       runBackend: defaultBackend,
-      sim: deps.simBackend ? "mirofish" : "replay",
+      sim: deps.simBackend ? "mirofish" : "none",
       model: modelEnv.MODEL_NAME || "unset",
       modelKey: modelEnv.MODEL_API_KEY ? "set" : "unset",
+      decision: process.env.OPENROUTER_API_KEY && process.env.DECISION_PROVIDER !== "model" ? "jev" : "model",
       maxParallel,
       ...(deps.status?.() ?? {}),
     }));
@@ -196,6 +305,66 @@ export function createApp(deps: Deps) {
     for (const e of sub.history) res.write(`data: ${JSON.stringify({ ...e, history: true })}\n\n`);
     const ping = setInterval(() => res.write(`: ping\n\n`), 25000);
     req.on("close", () => { sub.close(); clearInterval(ping); });
+  });
+
+  app.get("/research/feed", (req, res) => {
+    sse(res);
+    const sub = research.subscribe((e) => res.write(`data: ${JSON.stringify(e)}\n\n`));
+    for (const e of sub.history) res.write(`data: ${JSON.stringify({ ...e, history: true })}\n\n`);
+    const ping = setInterval(() => res.write(`: ping\n\n`), 25000);
+    req.on("close", () => { sub.close(); clearInterval(ping); });
+  });
+
+  app.get("/world/state", (_req, res) => res.json(director.state()));
+
+  const GodSchema = z.discriminatedUnion("op", [
+    z.object({ op: z.literal("director"), enabled: z.boolean().optional(), intervalSec: z.number().min(15).max(300).optional() }),
+    z.object({ op: z.literal("tick") }),
+    z.object({ op: z.literal("event"), text: z.string().max(500).optional(), preset: z.enum(["crisis", "rumor", "windfall", "deadline"]).optional() }),
+    z.object({ op: z.literal("goal"), persona: z.string(), title: z.string().min(1).max(140) }),
+    z.object({ op: z.literal("conflict"), a: z.string(), b: z.string(), issue: z.string().min(1).max(140) }),
+    z.object({ op: z.literal("whisper"), persona: z.string(), text: z.string().min(1).max(300) }),
+    z.object({ op: z.literal("resolve"), conflictId: z.string() }),
+  ]);
+  app.post("/world/god", async (req, res) => {
+    const parsed = GodSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.issues.map((i) => i.message) });
+    const body = parsed.data;
+    const twinOf = (ref: string) =>
+      db.listTwins().find((t) => t.id === ref || t.name.toLowerCase() === ref.toLowerCase());
+    if (body.op === "director") {
+      if (body.enabled !== undefined) director.setEnabled(body.enabled);
+      if (body.intervalSec !== undefined) director.setIntervalSec(body.intervalSec);
+    } else if (body.op === "tick") {
+      void director.tick();
+    } else if (body.op === "event") {
+      const twins = db.listTwins();
+      const presets: Record<string, string> = {
+        crisis: `Breaking: a major outage just hit a platform everyone depends on`,
+        rumor: `Rumor: one of the twins is reportedly leaving the project`,
+        windfall: `Surprise: a surprise funding round was just announced`,
+        deadline: `Alert: a hard deadline was moved up to tomorrow`,
+      };
+      const text = body.text?.trim() || presets[body.preset ?? ""] || `${twins[0]?.name ?? "Someone"} faces unexpected news`;
+      bus.publish({ personaId: "_god", kind: "post", text }, nameOf);
+      if (twins.length) void reactTo(text);
+    } else if (body.op === "goal") {
+      const t = twinOf(body.persona);
+      if (!t) return res.status(404).json({ error: `no twin "${body.persona}"` });
+      director.addGoal(t, body.title);
+    } else if (body.op === "conflict") {
+      const a = twinOf(body.a); const b = twinOf(body.b);
+      if (!a || !b) return res.status(404).json({ error: "unknown twin" });
+      if (!director.addConflict(a, b, body.issue)) return res.status(409).json({ error: "conflict exists or limit reached" });
+    } else if (body.op === "whisper") {
+      const t = twinOf(body.persona);
+      if (!t) return res.status(404).json({ error: `no twin "${body.persona}"` });
+      whispers.set(t.id, body.text);
+      bus.publish({ personaId: "_god", kind: "post", text: `${t.name} received a whisper` }, nameOf);
+    } else if (body.op === "resolve") {
+      if (!director.resolveConflict(body.conflictId)) return res.status(404).json({ error: "unknown conflict" });
+    }
+    res.json({ ok: true, state: director.state() });
   });
 
   app.post("/world/chat", async (req, res) => {
@@ -251,7 +420,7 @@ export function createApp(deps: Deps) {
       run.agentViewUrl = session.agent_view_url;
       run.status = "running";
       db.addRun(run);
-      void pollHRun(run, hClient, db);
+      void pollHRun(run, hClient, dbx);
       return run;
     }
     await spawnDocker(run, [
@@ -273,6 +442,9 @@ export function createApp(deps: Deps) {
         `MODEL_REASONING_EFFORT=${modelEnv.MODEL_REASONING_EFFORT ?? ""}`,
         `MAX_STEPS=${maxSteps}`,
         `RUN_ID=${run.id}`,
+        ...(process.env.OPENROUTER_API_KEY ? [`OPENROUTER_API_KEY=${process.env.OPENROUTER_API_KEY}`] : []),
+        ...(process.env.OPENROUTER_JEV_MODEL ? [`OPENROUTER_JEV_MODEL=${process.env.OPENROUTER_JEV_MODEL}`] : []),
+        ...(process.env.DECISION_PROVIDER ? [`DECISION_PROVIDER=${process.env.DECISION_PROVIDER}`] : []),
       ],
       ExposedPorts: { "6080/tcp": {} },
       HostConfig: {
@@ -286,7 +458,7 @@ export function createApp(deps: Deps) {
     run.vncPort = Number(info.NetworkSettings.Ports["6080/tcp"]?.[0]?.HostPort) || undefined;
     run.status = "running";
     db.addRun(run);
-    void attachCollector(run, docker, db);
+    void attachCollector(run, docker, dbx);
   }
 
   const prepassCache = new Map<string, Promise<{ person: string; facts: any[]; handles: Record<string, string>; ms: number } | undefined>>();
@@ -298,12 +470,14 @@ export function createApp(deps: Deps) {
           const search = deps.osint?.searchPerson ?? searchPerson;
           const r = await Promise.race([
             search(person, { githubToken: process.env.GITHUB_TOKEN }),
-            new Promise<undefined>((res) => setTimeout(() => res(undefined), 3500)),
+            new Promise<undefined>((res) => setTimeout(() => res(undefined), agentBackend === "none" ? 15000 : 3500)),
           ]);
           if (!r) return undefined;
           const ts = new Date().toISOString();
-          for (const f of r.facts)
+          for (const f of r.facts) {
             db.addFinding({ runId: `prepass:${subjectId}`, subjectId, sourceUrl: f.sourceUrl, summary: f.summary, ts });
+            void onFinding({ runId: `prepass:${subjectId}`, subjectId, sourceUrl: f.sourceUrl, summary: f.summary, ts, instant: true });
+          }
           return { person, facts: r.facts, handles: r.handles as Record<string, string>, ms: r.ms };
         } catch {
           return undefined;
@@ -317,6 +491,8 @@ export function createApp(deps: Deps) {
 
   async function spawnTaskRun(task: SpawnTask): Promise<{ run: AgentRun; instant?: any }> {
     if (typeof task === "string") {
+      if (agentBackend === "none")
+        throw new Error("live agent desktops aren't available in this hosted demo — ask me to research a named public figure instead (e.g. \"research Linus Torvalds\")");
       if (agentBackend === "h") {
         if (!hClient) throw new Error("agents need the H backend (set MODEL_API_KEY / HAI_API_KEY)");
         const session: any = await hClient.createTaskSession(buildFreeformTask(task));
@@ -326,7 +502,7 @@ export function createApp(deps: Deps) {
           createdAt: new Date().toISOString(),
         };
         db.addRun(run);
-        void pollHRun(run, hClient, db);
+        void pollHRun(run, hClient, dbx);
         return { run };
       }
       const run: AgentRun = {
@@ -334,6 +510,7 @@ export function createApp(deps: Deps) {
         backend: "docker", createdAt: new Date().toISOString(),
       };
       await spawnDocker(run, [`TASK=${task}`]);
+      research.publish({ runId: run.id, subjectId: "_chat", subject: "task", kind: "start", text: task });
       return { run };
     }
     const person = task.person.trim();
@@ -355,6 +532,15 @@ export function createApp(deps: Deps) {
         (Object.keys(instant.handles).length ? `; handles: ${JSON.stringify(instant.handles)}` : "")
       : "";
     const taskText = extra ? `OSINT: ${person} — ${extra}` : `OSINT: ${person}`;
+    if (agentBackend === "none") {
+      const run: AgentRun = {
+        id: randomUUID(), subjectId: subject.id, task: taskText, status: "done",
+        backend: "docker", createdAt: new Date().toISOString(),
+      };
+      db.addRun(run);
+      research.publish({ runId: run.id, subjectId: subject.id, subject: subject.name, kind: "done", text: `fast-lane research on ${subject.name} complete` });
+      return { run, instant };
+    }
     if (agentBackend === "h") {
       if (!hClient) throw new Error("agents need the H backend (set MODEL_API_KEY / HAI_API_KEY)");
       const session: any = await hClient.createSession(
@@ -369,7 +555,7 @@ export function createApp(deps: Deps) {
         createdAt: new Date().toISOString(),
       };
       db.addRun(run);
-      void pollHRun(run, hClient, db);
+      void pollHRun(run, hClient, dbx);
       return { run, instant };
     }
     const run: AgentRun = {
@@ -381,6 +567,7 @@ export function createApp(deps: Deps) {
       ...(extra ? [`TASK_EXTRA=${extra}`] : []),
       ...(instant ? [`LEADS_JSON=${JSON.stringify({ name: person, facts: instant.facts.slice(0, 12), handles: instant.handles })}`] : []),
     ]);
+    research.publish({ runId: run.id, subjectId: subject.id, subject: subject.name, kind: "start", text: `OSINT run on ${subject.name}${extra ? ` — ${extra}` : ""}` });
     return { run, instant };
   }
 
@@ -528,6 +715,13 @@ export function createApp(deps: Deps) {
     const run = db.getRun(req.params.id);
     if (!run) return res.status(404).json({ error: "not found" });
     sse(res);
+    // replay persisted findings first — tiles/CLI stay populated after the
+    // container is gone (tile dedupes against the live stream's repeats)
+    for (const f of db.getFindings(run.subjectId).filter((f) => f.runId === run.id))
+      res.write(`data: ${JSON.stringify({
+        kind: "finding", runId: run.id, ts: f.ts,
+        data: { runId: run.id, sourceUrl: f.sourceUrl, summary: f.summary, ts: f.ts },
+      })}\n\n`);
     if (run.backend === "h") {
       const sub = subscribe(run.id, (ev) => res.write(`data: ${JSON.stringify(ev)}\n\n`));
       for (const ev of sub.buffered) res.write(`data: ${JSON.stringify(ev)}\n\n`);
@@ -590,6 +784,36 @@ export function createApp(deps: Deps) {
     res.json(dossier);
   });
 
+  app.post("/runs/:id/twin", async (req, res) => {
+    const run = db.getRun(req.params.id);
+    if (!run) return res.status(404).json({ error: "not found" });
+    const name = typeof req.body?.name === "string" ? req.body.name.trim().slice(0, 80) : "";
+    if (!name) return res.status(400).json({ error: "name required" });
+    let subject = db.listSubjects().find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (!subject) {
+      subject = {
+        id: randomUUID(), type: "public_figure", name,
+        approvedSources: OSINT_SOURCES, consent: true,
+        consentedAt: new Date().toISOString(), handles: [],
+        createdAt: new Date().toISOString(),
+      };
+      db.addSubject(subject);
+    }
+    // findings UNIQUE key is (runId, sourceUrl, summary) — copy under a
+    // provenance runId or INSERT OR IGNORE would silently drop them
+    for (const f of db.getFindings(run.subjectId).filter((f) => f.runId === run.id)) {
+      db.addFinding({ runId: `twin:${run.id}`, subjectId: subject.id, sourceUrl: f.sourceUrl, summary: f.summary, ts: f.ts });
+    }
+    const findings: Finding[] = db.getFindings(subject.id);
+    const dossier = buildDossier(subject.id, findings);
+    db.saveDossier(dossier);
+    const persona = chat && req.body?.fixture !== true
+      ? await buildPersona(dossier, subject.name, chat)
+      : fixturePersona(subject.id, subject.name, dossier);
+    db.saveTwin(persona);
+    res.json({ subjectId: subject.id, dossier, persona });
+  });
+
   app.post("/subjects/:id/pipeline", async (req, res) => {
     const subject = db.getSubject(req.params.id);
     if (!subject) return res.status(404).json({ error: "not found" });
@@ -650,7 +874,7 @@ export function createApp(deps: Deps) {
     const twin = db.getTwin(req.params.id);
     if (!twin) return res.status(404).json({ error: "not found" });
     const message = String(req.body?.message ?? "");
-    if (sim.interview) {
+    if (sim?.interview) {
       const via = await sim.interview(twin.name, message).catch(() => undefined);
       if (via) return res.json({ reply: via });
     }
@@ -670,6 +894,7 @@ export function createApp(deps: Deps) {
   });
 
   app.post("/sim/start", async (req, res) => {
+    if (!sim) return res.status(503).json({ error: "simulation unavailable" });
     const result = sim.start
       ? await sim.start(
           db.listTwins(),
@@ -682,15 +907,15 @@ export function createApp(deps: Deps) {
   });
 
   app.get("/sim/status", async (_req, res) => {
-    res.json({ status: sim.status ? await sim.status() : "replay" });
+    res.json({ status: sim?.status ? await sim.status() : "unavailable" });
   });
 
   app.get("/sim/events", async (req, res) => {
     sse(res);
-    const seed = sim.seedDocument(db.listTwins());
+    const seed = sim?.seedDocument(db.listTwins()) ?? "";
     res.write(`data: ${JSON.stringify({ personaId: "_system", ts: new Date().toISOString(), kind: "post", text: seed.slice(0, 0) })}\n\n`);
     (async () => {
-      for await (const e of sim.events()) {
+      for await (const e of sim!.events()) {
         res.write(`data: ${JSON.stringify(e)}\n\n`);
         while (injected.length) {
           const ev = injected.shift()!;
@@ -716,6 +941,9 @@ export function createApp(deps: Deps) {
     res.json({ ok: true });
   });
 
+  if (deps.director?.intervalMs) director.setIntervalSec(deps.director.intervalMs / 1000);
+  if (deps.director?.autostart) director.setEnabled(true);
+  (app as any)._director = director;
   return app;
 }
 

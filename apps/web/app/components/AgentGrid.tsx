@@ -110,6 +110,9 @@ function AgentTile({ runId }: { runId: string }) {
   const [open, setOpen] = useState(false);
   const [twinState, setTwinState] = useState<"idle" | "building" | "done" | "error">("idle");
   const [twinError, setTwinError] = useState<string>();
+  const [twinName, setTwinName] = useState("");
+  const [gState, setGState] = useState<"idle" | "building" | "done" | "error">("idle");
+  const [gError, setGError] = useState<string>();
   const isDocker = run?.backend === "docker";
   const osint = !!run && run.subjectId !== "_chat";
   const link = isDocker && run?.vncPort ? vncUrl(run.vncPort) : run?.liveViewUrl ?? run?.agentViewUrl;
@@ -150,6 +153,25 @@ function AgentTile({ runId }: { runId: string }) {
     } catch (e: any) {
       setTwinState("error");
       setTwinError(e?.message ?? String(e));
+    }
+  }
+
+  async function buildTwinFromRun() {
+    const name = twinName.trim();
+    if (!run || !name) return;
+    setGState("building");
+    setGError(undefined);
+    try {
+      const res = await fetch(`${ORCH}/runs/${run.id}/twin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setGState("done");
+    } catch (e: any) {
+      setGState("error");
+      setGError(e?.message ?? String(e));
     }
   }
 
@@ -202,7 +224,7 @@ function AgentTile({ runId }: { runId: string }) {
         <StatusPill variant={pillVariant(run?.status)}>{run?.status ?? "queued"}</StatusPill>
       </div>
       {summary && <p className="mt-1 text-xs text-emerald-300">{summary}</p>}
-      {osint && findings.length > 0 && (
+      {findings.length > 0 && (
         <ul className="mt-1 space-y-0.5">
           {findings.slice(0, 3).map((f, i) => (
             <li key={i} className="truncate text-[11px] text-neutral-500">
@@ -235,6 +257,33 @@ function AgentTile({ runId }: { runId: string }) {
           )}
           <a href={`/subjects/${run.subjectId}`} className="text-sky-400 hover:underline">Dossier</a>
           {twinState === "error" && <span className="text-red-400">{twinError}</span>}
+        </div>
+      )}
+      {!osint && run?.status === "done" && findings.length > 0 && (
+        <div className="mt-1.5 flex items-center gap-2 text-[11px]">
+          {gState === "done" ? (
+            <a href="/world" className="text-sky-400 hover:underline">Open world →</a>
+          ) : (
+            <>
+              <input
+                value={twinName}
+                onChange={(e) => setTwinName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") buildTwinFromRun(); }}
+                placeholder="Who is this twin of?"
+                aria-label="Twin name"
+                className="w-36 rounded-md border border-neutral-700 bg-neutral-900 px-1.5 py-0.5 text-neutral-300 placeholder:text-neutral-600"
+              />
+              <button
+                type="button"
+                onClick={buildTwinFromRun}
+                disabled={gState === "building" || !twinName.trim()}
+                className="rounded-md border border-neutral-700 px-2 py-0.5 text-neutral-300 hover:bg-neutral-800 disabled:opacity-50"
+              >
+                {gState === "building" ? "Building…" : "Build twin"}
+              </button>
+            </>
+          )}
+          {gState === "error" && <span className="text-red-400">{gError}</span>}
         </div>
       )}
 

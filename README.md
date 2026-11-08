@@ -1,113 +1,156 @@
-# MIMK
+<p align="center">
+  <img src="docs/assets/banner.png" alt="MiMK — Digital Twins for Agents" width="100%">
+</p>
 
-Hackathon prototype: a web GUI + CLI that spawn sandboxed Linux-desktop
-computer-use agents (via [agent-desktop](https://github.com/vercel-labs/agent-desktop))
-to research opt-in volunteers and public figures using public data only.
-Dossiers feed twin personas -> MiroFish simulation -> a Phaser pixel world.
+<p align="center">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white">
+  <img alt="Node.js" src="https://img.shields.io/badge/Node.js-339933?style=flat&logo=nodedotjs&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=white">
+  <img alt="SQLite" src="https://img.shields.io/badge/SQLite-003B57?style=flat&logo=sqlite&logoColor=white">
+  <img alt="Vitest" src="https://img.shields.io/badge/Vitest-6E9F18?style=flat&logo=vitest&logoColor=white">
+  <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow?style=flat">
+  <img alt="H Company Holo" src="https://img.shields.io/badge/Model-H%20Company%20Holo-ff7a29?style=flat">
+  <img alt="Hackathon" src="https://img.shields.io/badge/Hackathon-H%20Company%20%C3%97%2042AI-6d28d9?style=flat">
+</p>
 
-## Layout
+<p align="center">
+  <a href="https://www.noemtech.com/products/mimk">Website</a> ·
+  <a href="https://github.com/Sebastianrodaaa/MIMK">Repo</a>
+</p>
 
-- `packages/shared` — types, zod schemas, sensitive-data filter
-- `packages/twin` — dossier builder + persona builder (LLM or deterministic fixtures)
-- `apps/orchestrator` — Express API: subjects, runs (agent containers + VNC),
-  dossiers/twins, chat, sim event SSE; SQLite at `apps/orchestrator/data/mimk.db`
-- `apps/web` — Next.js UI: `/` chat console, `/subjects/[id]` VNC grid,
-  `/world` Phaser pixel world
-- `apps/cli` — `mimk` CLI
-- `runtime/agent-image` — agent container: Xvfb + openbox + Firefox (mozillateam PPA)
-  + agent-desktop + x11vnc + noVNC (port 6080)
-- `fixtures/` — 3 fictional opted-in subjects (Ada Voss, Marco Lenz, Iris Tanaka)
-  with findings, dossiers, personas, and 60 replay sim events
+> A closed-loop system for constructing and observing grounded digital twins of real world based agents and task inside a multi-agent social simulation.
 
-## Two-minute demo script
+From a chat console you spin up computer-use research agents — each a live Linux desktop you can watch over noVNC — that gather public-source findings about a person or task. Findings build a dossier, the dossier becomes a twin persona, and twins move into a pixel office where a world director gives them goals and conflicts. New research lands in the world within seconds: twins enter automatically, react, pick fights, and can be steered from a God-mode console. [MiroFish](https://github.com/666ghj/MiroFish) drives a much larger agent-society simulation behind the same feed.
 
-```sh
-cp .env.example .env           # OFFLINE=1 works with zero LLM keys
-npm install
-docker build -t mimk-agent runtime/agent-image
-npm run dev -w apps/orchestrator   # :4000, seeds fixtures automatically
-npm run dev -w apps/web            # :3000
+<p align="center">
+  <img src="docs/assets/screens/world.png" alt="Pixel world: office with twins, world chat streaming goals, conflicts and research reactions" width="100%">
+</p>
+<p align="center">
+  <img src="docs/assets/screens/world-god.png" alt="God-mode drawer inside the world chat" width="70%">
+</p>
+
+## How it works
+
+```mermaid
+flowchart LR
+  Chat[Chat console<br>Next.js] --> Orch[Orchestrator<br>Express + SQLite]
+  Orch --> Lane[Fast OSINT lane<br>Wikipedia / Wikidata / GitHub<br>OpenAlex / HN / Maigret]
+  Orch --> Box[Agent sandbox containers<br>Xvfb + Firefox + x11vnc<br>noVNC + agent-desktop]
+  Box --> Jev[Jev decisions<br>OpenRouter]
+  Box --> Holo[Holo synthesis<br>findings + summary]
+  Lane --> F[(Findings)]
+  Holo --> F
+  F --> SF[Sensitive-data filter]
+  SF --> Dos[Dossier]
+  Dos --> Twin[Twin builder]
+  Twin --> World[Pixel world<br>React canvas office]
+  F --> World
+  World --> Dir[World director<br>goals + conflicts]
+  Orch --> Sim[MiroFish<br>Flask + Zep]
 ```
 
-0:00 — open `http://localhost:3000` and ask the chat to research a person
-       (e.g. "research Ada Voss with 2 agents"); agents spawn as live desktops
-       in the chat (max 4 per task, capped overall by `MAX_PARALLEL`).
-0:50 — `POST /subjects/:id/dossier` then `/subjects/:id/twin` (or use the CLI /
-       cached fixtures: fixtures are auto-seeded at startup, so `/twins` is
-       already populated offline).
-1:10 — open `http://localhost:3000/world` — personas wander the town and replay
-       `fixtures/sim-events.json` as speech bubbles (1x/2x/4x). Click a
-       character to chat; type in "Inject event" to make everyone react.
-1:50 — switch the world dropdown to `live (SSE)` to read `GET /sim/events`.
+## Features
 
-## Pre-run / caching
+- **Chat console** — ask anything; "research …" spawns up to 4 parallel agents per task, each a live noVNC desktop tile you can watch and click into.
+- **Two agent modes** — OSINT research on a named public figure (`person` + `task`), or generic computer-use tasks on the desktop.
+- **Fast lane** — instant findings in ~1s from direct public APIs, then Jev-driven research runs finishing in ~10–15s in our tests (measured on Linus Torvalds / Guido van Rossum).
+- **"Who is this twin of?"** — turn any finished generic task into a twin: the run's findings become its dossier.
+- **Reactive pixel world, no fixtures** — twins auto-appear when research produces ≥3 findings; a world director injects events, goals and conflicts every ~45s (one model call per tick, template fallback offline).
+- **World chat** — events, hypotheticals, `@name` questions, twin removal; God-mode drawer for director control, event presets, goals, conflicts, whispers, resolve, and a follow camera.
+- **Speech bubbles** — twins speak above their desks; long text, click to expand/pin, Esc to dismiss.
+- **Past chats** — sessions persist in localStorage with a new-chat flow.
+- **MiroFish simulation** — the same twins run through a full multi-agent social sim when it's up.
+- **Guardrails** — public information only: no logins, no paywall bypass, people-search/data-broker domains blocked, sensitive-data filter on persistence, source URLs required on every finding.
 
-Dossiers and twins persist in SQLite, so you can generate them ahead of the
-demo and the UI reads them instantly. With `OFFLINE=1` or no `MODEL_BASE_URL`,
-persona building and chat use deterministic canned logic — everything still works.
+## Tech stack
 
-## Key env vars
-
-| var | meaning |
+| Layer | Tech |
 |---|---|
-| `MODEL_BASE_URL`/`MODEL_NAME`/`MODEL_API_KEY` | OpenAI-compatible endpoint for agents. Defaults target the H Company Models API: `https://api.hcompany.ai/v1`, model `holo3-1-35b-a3b` (free tier, 10 req/min). Get a key at https://platform.hcompany.ai. Faster paid models: `holo4-35b-a3b`, `holo4-27b` |
-| `TWIN_MODEL_*` | override for persona/chat calls (falls back to `MODEL_*`) |
-| `MAX_PARALLEL` | cap on concurrently running agent containers (default 4) |
-| `AGENT_BACKEND` | backend for agents spawned from the chat: `docker` (local desktop containers, default) or `h` (H cloud agents). Chat spawns at most 4 agents per request. Finished containers linger `LINGER_S` seconds (default 90) so the final desktop stays viewable. 4 parallel agents exceed the Holo free tier (10 req/min) — use a paid model (`holo4-35b-a3b`) for parallel runs |
-| `MAX_STEPS`, `STEP_DELAY_MS` | agent loop controls |
-| `OFFLINE=1` | force fixture/canned mode, no LLM calls |
-| `FIXTURES_DIR` | default `../../fixtures` relative to orchestrator |
-| `MIROFISH_URL` | if set, `/sim/events` uses the MiroFish backend instead of replay |
-| `NEXT_PUBLIC_ORCHESTRATOR_URL`, `NEXT_PUBLIC_VNC_HOST` | web wiring |
+| Web | Next.js, React, Tailwind, lucide-react |
+| API | Express, zod, better-sqlite3 |
+| Monorepo | npm workspaces, TypeScript, Vitest |
+| Agent sandbox | Docker, Xvfb, openbox, Firefox, x11vnc, noVNC, [vercel-labs/agent-desktop](https://github.com/vercel-labs/agent-desktop) |
+| Models | H Company Holo (OpenAI-compatible API); TypeSafe Jev via OpenRouter for step decisions |
+| OSINT | Direct public APIs (Wikipedia, Wikidata, GitHub, OpenAlex, HN), Maigret, curated OSINT tool list |
+| Simulation | MiroFish — Flask + Zep |
+| World | pixel-agents office — React canvas, vite |
+
+## Repo layout
+
+```
+apps/web            Next.js UI: / chat console, /world pixel world
+apps/orchestrator   Express API + SQLite: subjects, runs, dossiers, twins,
+                    world feed/director/god, research feed, sim bridge
+apps/cli            mimk CLI
+packages/shared     types, zod schemas, sensitive-data filter
+packages/twin       dossier + persona builders
+packages/osint      fast OSINT lane: source wrappers, privacy filter, searchPerson
+runtime/agent-image agent container + lane loop + Jev research runner
+services/pixel-agents  pixel office (React canvas webview-ui) + VS Code ext/CLI
+services/mirofish   MiroFish sim backend (Flask + Zep)
+services/osint-tools-library  curated OSINT tool catalog
+fixtures            fictional test fixtures (opt-in only, FIXTURES_DIR)
+scripts             dev-all, smoke, agent lane sync, osint tools sync
+```
+
+## Quickstart
+
+```bash
+git clone https://github.com/Sebastianrodaaa/MIMK && cd MIMK
+cp .env.example .env        # fill MODEL_API_KEY (+ OPENROUTER_API_KEY for Jev)
+npm install
+npm run build:agent         # builds the mimk-agent docker image
+npm run dev:all             # orchestrator :4000 + web :3001 (+ pixel office :3200)
+```
+
+Open http://localhost:3001. Optional: `scripts/setup-mirofish.sh` for the sim backend on :5001.
+
+**Demo (4 steps):**
+1. Chat: `Research the professional background of Linus Torvalds` — watch the instant findings card, then the agent tile come alive with a VNC desktop.
+2. Open `/world` — a Linus twin enters the office automatically; the director starts assigning goals and sparking conflicts.
+3. Click the crown in the World chat header — post a `crisis` event, set a goal, start a conflict, whisper to a twin.
+4. Click a speech bubble above a character — it expands and pins; Esc dismisses.
+
+## Configuration
+
+| Var | Default | Purpose |
+|---|---|---|
+| `MODEL_BASE_URL` / `MODEL_NAME` / `MODEL_API_KEY` | – / `holo` / – | Chat model (OpenAI-compatible). Holo free tier ≈10 req/min — a paid model (e.g. `holo4-35b-a3b`) is needed for 4 parallel agents. |
+| `TWIN_MODEL_*` | falls back to `MODEL_*` | Separate model for dossier/persona building. |
+| `OPENROUTER_API_KEY` / `OPENROUTER_JEV_MODEL` / `DECISION_PROVIDER` | – / `~typesafe/jev-latest` / `jev` | Jev fast-decision loop in OSINT agents; set `DECISION_PROVIDER=model` to force the old Holo loop. |
+| `AGENT_BACKEND` | `docker` | `docker` (local desktops) or `h` (H cloud agents). |
+| `RUN_BACKEND`, `HAI_*` | – | H Company Agents API backend config. |
+| `MAX_PARALLEL` | `4` | Concurrent agent cap. |
+| `MAX_STEPS` | `40` | Agent step limit per run. |
+| `OFFLINE` | – | `1` = no model/network calls (tests). |
+| `FIXTURES_DIR` | unset | Load/seed fixture subjects+twins; unset = fixture-free world. |
+| `DIRECTOR` | on | `off` disables the world director. `DIRECTOR_INTERVAL_MS` overrides the 45s default. |
+| `MIROFISH_URL` / `ZEP_API_KEY` | `http://localhost:5001` / – | Simulation backend. |
+| `NEXT_PUBLIC_OFFICE_URL` / `NEXT_PUBLIC_ORCHESTRATOR_URL` | `:3200` / `:4000` | Web ↔ office/orchestrator wiring. |
+| `LINGER_S` | `90` | Finished desktops stay viewable. |
 
 ## MiroFish bridge
 
-MiroFish (https://github.com/666ghj/MiroFish, cloned to `services/mirofish`,
-gitignored) is a Flask backend (`/api/graph`, `/api/simulation`, `/api/report`)
-that builds an agent society from a seed document and simulates it.
+`services/mirofish` is a vendored MiroFish (Flask + Zep) running on :5001. The orchestrator builds a seed document from current twins + findings, POSTs it to MiroFish, then streams generated social posts back into the world feed (`/world/feed`) as twin-authored messages. When it's down the world still runs on the director alone; `/sim/status` reports `unavailable`.
 
-Setup (Python 3.12 via uv — the system Python is too new):
+## Testing
 
 ```bash
-bash scripts/setup-mirofish.sh   # clones if needed, writes services/mirofish/.env
-cd services/mirofish/backend && .venv/bin/python run.py   # serves :5001
+npm test                  # vitest across packages/apps (offline, model stubs)
+npm run smoke             # live OSINT lane smoke — needs network to public APIs
+node runtime/agent-image/test/jev.test.mjs        # Jev contract/runner tests (mock server)
+node runtime/agent-image/test/compact-snapshot.test.mjs
 ```
 
-Then in root `.env` set `MIROFISH_URL=http://localhost:5001` (and a real
-`ZEP_API_KEY` — free tier at https://app.getzep.com) and restart the
-orchestrator. `apps/orchestrator/src/sim.ts` `MirofishBackend` drives the real
-pipeline: ontology/generate -> graph build -> simulation create/prepare/start
-(capped by `MIROFISH_MAX_ROUNDS`, default 10) -> maps `/posts` + `/actions`
-into world events, and `/twins/:id/chat` proxies to MiroFish `/interview`.
-Without `MIROFISH_URL` (or if the service is unreachable / keys missing) the
-world falls back to the replay fixture and `/status` says why.
+## OSINT tools sync
 
-Verified locally: backend boots on Python 3.12 and `/api/simulation/list`
-answers. A real simulation needs real `ZEP_API_KEY` + `LLM_API_KEY`.
+`services/osint-tools-library` holds the curated public-OSINT catalog the agent prompt reads. `npm run sync:osint` regenerates the bundled tool list; `npm run sync:lane` syncs the shared lane helpers into `runtime/agent-image/lane/`.
 
-## Test it
+## Responsible use
 
-```bash
-npm run dev:all     # orchestrator :4000 + web :3001 (3000 if free)
-npm run smoke       # 6-check end-to-end in offline mode
-npm run smoke -- --live   # also fires one real H Agents API session
-```
+MiMK researches **public information only**: no credential use, no login-gated or paywalled sources, no people-search/data-broker sites, and a sensitive-data filter (phones, emails, addresses) runs before anything is persisted. Every finding carries a source URL. Digital twins are labeled fictional personas derived from public material — treat them accordingly and get consent for anything beyond public figures.
 
-Flow: ask the chat to research a person -> agents spawn
-(docker+agent-desktop desktops, or H Agents API sessions when `HAI_API_KEY`
-is set) -> findings persist to SQLite -> "Build twin" -> persona appears in
-`/world` -> click a character to chat, "Inject event" for god-mode.
+## License & credits
 
-Keys: `HAI_API_KEY`/`MODEL_API_KEY` unlocks H Agents API + Holo models
-(free tier `holo3-1-35b-a3b`, get key at https://platform.hcompany.ai);
-`ZEP_API_KEY` unlocks real MiroFish simulations.
-
-## OSINT tools list
-
-`runtime/agent-image/tools.json` is generated from the OSINT Tools Library
-(curated to free, no-login, professional-footprint tools):
-
-```sh
-git clone --depth 1 -b GitBook https://github.com/The-OSINT-Newsletter/OSINT-Tools-Library services/osint-tools-library
-npm run sync:osint
-```
+MIT © Sebastian Roda. Built for the H Company × 42AI hackathon. Thanks to H Company (Holo + Agents API), [vercel-labs/agent-desktop](https://github.com/vercel-labs/agent-desktop), [MiroFish](https://github.com/666ghj/MiroFish), [Maigret](https://github.com/soxoj/maigret), and TypeSafe Jev.

@@ -1,0 +1,36 @@
+<!-- Render with headless Chromium: `npx playwright` / playwright-core chromium screenshot
+     at viewport 1600x520 of the file URL. See docs/assets/src/README -->
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;box-sizing:border-box}
+body{width:1600px;height:520px;overflow:hidden;
+  background:#0b0b10;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+  display:flex;align-items:center;color:#ececf1}
+.glow{position:absolute;inset:0;
+  background:radial-gradient(700px 380px at 24% 50%,rgba(255,120,40,.16),transparent 70%),
+             radial-gradient(900px 460px at 78% 60%,rgba(200,40,40,.10),transparent 70%)}
+.wrap{position:relative;display:flex;align-items:center;gap:64px;padding:0 96px}
+.logo{width:230px;height:230px;filter:drop-shadow(0 12px 36px rgba(255,90,30,.35))}
+.text{display:flex;flex-direction:column;gap:10px}
+.word{font-size:96px;font-weight:800;letter-spacing:-2px;line-height:1}
+.word span{color:#ff7a29}
+.sub{font-size:30px;font-weight:600;color:#cfcfd6}
+.tag{font-size:19px;color:#8b8b96;max-width:1050px;line-height:1.45}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.chip{font-size:16px;color:#ffb27a;background:rgba(255,120,40,.09);
+  border:1px solid rgba(255,120,40,.30);border-radius:999px;padding:6px 14px}
+</style></head><body>
+<div class="glow"></div>
+<div class="wrap">
+  <img class="logo" src="../logo.png">
+  <div class="text">
+    <div class="word">Mi<span>M</span>K</div>
+    <div class="sub">Digital Twins for Agents</div>
+    <div class="tag">A closed-loop system for constructing and observing grounded digital twins of real world based agents and task inside a multi-agent social simulation.</div>
+    <div class="chips">
+      <span class="chip">Computer-Use Agents</span><span class="chip">OSINT</span>
+      <span class="chip">Digital Twins</span><span class="chip">Multi-Agent Simulation</span>
+      <span class="chip">Pixel World</span><span class="chip">H Company &times; 42AI Hackathon</span>
+    </div>
+  </div>
+</div>
+</body></html>

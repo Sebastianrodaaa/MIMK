@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { compactSnapshot } from "./compact.js";
 import { searchPerson, fetchTexts, verifyProfiles } from "./lane/index.js";
+import { jevChoose, runJevResearch } from "./jev.js";
 import { writeFileSync, unlinkSync } from "node:fs";
 import { execFile as execFileCb } from "node:child_process";
 
@@ -242,6 +243,18 @@ function maigret(handle: string): Promise<string[]> {
   });
 }
 
+async function usernameObs(handle: string, name: string): Promise<string> {
+  const urls = await maigret(handle);
+  if (name && urls.length) {
+    const v = await verifyProfiles(name, urls.slice(0, 12));
+    return v.verified.length
+      ? `VERIFIED profiles (name matched on page):\n${v.verified.map((x) => `- ${x.url} ("${x.evidence}")`).join("\n")}\n` +
+        `${v.unverified.length} unverified (squatted-name risk): ${v.unverified.slice(0, 5).join(" ")}`
+      : `No verified profiles among ${urls.length} hits. Unverified (squatted-name risk): ${urls.slice(0, 5).join(" ")}`;
+  }
+  return `${urls.length} profile-url candidates (unverified):\n${urls.slice(0, 15).join("\n")}`;
+}
+
 const laneOk = (obs: string, max = 2500) => (obs.length > max ? obs.slice(0, max) + "\n…[truncated]" : obs);
 
 async function runLane(a: any): Promise<string> {
@@ -269,16 +282,7 @@ async function runLane(a: any): Promise<string> {
       }).join("\n\n");
       return laneOk(obs, 12000);
     } else if (a.action === "username") {
-      const urls = await maigret(String(a.handle ?? ""));
-      if (a.name && urls.length) {
-        const v = await verifyProfiles(String(a.name), urls.slice(0, 12));
-        obs = v.verified.length
-          ? `VERIFIED profiles (name matched on page):\n${v.verified.map((x) => `- ${x.url} ("${x.evidence}")`).join("\n")}\n` +
-            `${v.unverified.length} unverified (squatted-name risk): ${v.unverified.slice(0, 5).join(" ")}`
-          : `No verified profiles among ${urls.length} hits. Unverified (squatted-name risk): ${urls.slice(0, 5).join(" ")}`;
-      } else {
-        obs = `${urls.length} profile-url candidates (unverified):\n${urls.slice(0, 15).join("\n")}`;
-      }
+      obs = await usernameObs(String(a.handle ?? ""), String(a.name ?? ""));
     } else if (a.action === "look") {
       return ""; // snapshot handled by caller
     } else {
@@ -315,6 +319,50 @@ async function main() {
     lastRaw = raw;
     return compactSnapshot(raw);
   };
+  // Jev-driven fast path for OSINT person runs (generic TASK keeps the model loop)
+  if (!GENERIC && process.env.OPENROUTER_API_KEY && process.env.DECISION_PROVIDER !== "model") {
+    try {
+      const done = await runJevResearch({
+        emit,
+        subject: SUBJECT.name,
+        goal: process.env.TASK_EXTRA ?? "professional background",
+        leads: LEADS,
+        searchPerson,
+        fetchText: (urls) => fetchTexts(urls, { maxChars: 2500 }),
+        usernameLane: usernameObs,
+        launchGui: async (url) => {
+          // fire-and-forget: spawn detached; when no instance exists yet this
+          // becomes the browser process itself — awaiting it would hang
+          const { spawn } = await import("node:child_process");
+          spawn("firefox", ["--new-tab", url], { detached: true, stdio: "ignore" }).unref();
+        },
+        readGui: takeSnapshot,
+        synthesize: async (excerpts) => {
+          const reply = await chat([
+            { role: "system", content: `You synthesize OSINT research. Reply with ONE JSON object only: {"summary":"<2-4 sentence overview>","findings":[{"sourceUrl":"https://…","summary":"<one-sentence fact>"}]}. 5-12 findings, facts present in the supplied excerpts only, every finding needs a sourceUrl from the visited set.` },
+            { role: "user", content: excerpts },
+          ]);
+          const parsed = parseAction(reply);
+          return { summary: String(parsed.summary ?? ""), findings: Array.isArray(parsed.findings) ? parsed.findings : [] };
+        },
+        jevChoose,
+        apiKey: process.env.OPENROUTER_API_KEY,
+      });
+      for (const f of done.findings.slice(0, 12).filter((f: any) => /^https?:\/\//.test(String(f.sourceUrl ?? "")) && String(f.summary ?? "").trim())) {
+        const sum = filterSensitive(String(f.summary).slice(0, 300));
+        notes.push(sum); recordedNotes.push(String(f.summary).slice(0, 140));
+        emit("finding", { runId: RUN_ID, sourceUrl: String(f.sourceUrl), summary: sum, ts: new Date().toISOString() });
+      }
+      emit("finding", { runId: RUN_ID, sourceUrl: "", summary: filterSensitive(String(done.summary ?? "")), ts: new Date().toISOString() });
+      emit("log", { msg: "done" });
+      await sleep(1500);
+      emit("log", { msg: "finished", ok: true });
+      return;
+    } catch (e: any) {
+      emit("log", { msg: "decision: fell back to model", err: String(e?.message ?? e).replace(/[A-Za-z0-9_-]{24,}/g, "[key]").slice(0, 160) });
+    }
+  }
+
   let guiPending = false;
   let lastObs = "";
   for (let step = 0; step < MAX_STEPS; step++) {

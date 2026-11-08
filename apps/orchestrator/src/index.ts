@@ -2,7 +2,7 @@ import Docker from "dockerode";
 import { existsSync, readFileSync } from "node:fs";
 import { createApp } from "./app.js";
 import { createDb } from "./db.js";
-import { loadFixtureDir, MirofishBackend, ReplayBackend, type SimBackend } from "./sim.js";
+import { loadFixtureDir, MirofishBackend, type SimBackend } from "./sim.js";
 import { reattachCollectors } from "./collector.js";
 import { createClient, type HClient } from "./hagents.js";
 import { pollHRun } from "./hcollector.js";
@@ -20,8 +20,8 @@ const port = Number(process.env.ORCHESTRATOR_PORT ?? 4000);
 const db = createDb(process.env.DB_PATH ?? "./data/mimk.db");
 const docker = new Docker();
 
-const fixturesDir = process.env.FIXTURES_DIR ?? "../../fixtures";
-const fixtures = existsSync(fixturesDir) ? loadFixtureDir(fixturesDir) : undefined;
+const fixturesDir = process.env.FIXTURES_DIR;   // no default: fixture-free world
+const fixtures = fixturesDir && existsSync(fixturesDir) ? loadFixtureDir(fixturesDir) : undefined;
 for (const s of fixtures?.subjects ?? []) {
   if (!db.getSubject(s.id)) db.addSubject(s);
 }
@@ -63,8 +63,8 @@ const runBackend =
   (hClient ? "h" : "docker");
 console.log(`backend=${runBackend} model=${name} key=${haiKey ? "set" : "unset"}`);
 
-let simBackend: SimBackend = new ReplayBackend(fixtures?.events ?? []);
-let simStatus: Record<string, unknown> = { sim: "replay" };
+let simBackend: SimBackend | undefined = undefined;
+let simStatus: Record<string, unknown> = { sim: "none" };
 if (process.env.MIROFISH_URL) {
   const mf = new MirofishBackend(process.env.MIROFISH_URL);
   try {
@@ -75,7 +75,7 @@ if (process.env.MIROFISH_URL) {
     simBackend = mf;
     simStatus = { sim: "mirofish", mirofish: process.env.MIROFISH_URL };
   } catch (e: any) {
-    simStatus = { sim: "replay", simReason: `mirofish unavailable: ${String(e?.message ?? e)}` };
+    simStatus = { sim: "none", simReason: `mirofish unavailable: ${String(e?.message ?? e)}` };
   }
 }
 
@@ -95,7 +95,8 @@ createApp({
   simBackend,
   hClient,
   runBackend,
-  agentBackend: process.env.AGENT_BACKEND === "h" ? "h" : "docker",
+  agentBackend: process.env.AGENT_BACKEND === "h" ? "h" : process.env.AGENT_BACKEND === "none" ? "none" : "docker",
+  director: { autostart: process.env.DIRECTOR !== "off", intervalMs: Number(process.env.DIRECTOR_INTERVAL_MS ?? 45000) },
   status: () => simStatus,
 }).listen(port, () => {
   console.log(`orchestrator on :${port}`);

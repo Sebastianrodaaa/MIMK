@@ -27,10 +27,10 @@ RUN apt-get update -qq && apt-get install -y -qq --no-install-recommends python3
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /agent
-COPY tools.json loop.ts compact.ts entrypoint.sh tsconfig.json ./
+COPY tools.json loop.ts compact.ts jev.ts entrypoint.sh tsconfig.json ./
 COPY lane/ ./lane/
 COPY policies.json /usr/lib/firefox/distribution/policies.json
 RUN npm init -y >/dev/null && npm i --no-save typescript@5.9.3 @types/node@20.19.0 \
-    && ./node_modules/.bin/tsc loop.ts compact.ts lane/*.ts --target es2022 --module nodenext --moduleResolution nodenext --strict --skipLibCheck --types node --outDir . && chmod +x entrypoint.sh
+    && ./node_modules/.bin/tsc loop.ts compact.ts jev.ts lane/*.ts --target es2022 --module nodenext --moduleResolution nodenext --strict --skipLibCheck --types node --outDir . && chmod +x entrypoint.sh
 
 ENTRYPOINT ["/agent/entrypoint.sh"]

@@ -3,7 +3,10 @@ export type WorldAction =
   | { type: "scenario"; text: string; rounds: number }
   | { type: "ask"; persona: string; text: string }
   | { type: "remove"; persona: string }
-  | { type: "simulate"; scenario?: string; rounds: number };
+  | { type: "simulate"; scenario?: string; rounds: number }
+  | { type: "goal"; persona: string; title: string }
+  | { type: "conflict"; a: string; b: string; issue: string }
+  | { type: "director"; enabled: boolean };
 
 export function worldSystemPrompt(twinNames: string[]): string {
   return (
@@ -20,7 +23,11 @@ export function worldSystemPrompt(twinNames: string[]): string {
     `to remove a twin from the world, ONLY when the user explicitly asks to remove/kick/delete that person; ` +
     `<world_action>{"type":"simulate","scenario":"<optional scenario>","rounds":10}</world_action> ` +
     `to launch the full MiroFish simulation (slow, takes minutes) ONLY when the user explicitly ` +
-    `asks to run or launch the simulation. Never emit blocks for ordinary conversation.`
+    `asks to run or launch the simulation; ` +
+    `<world_action>{"type":"goal","persona":"<twin name>","title":"<goal>"}</world_action> to set a goal; ` +
+    `<world_action>{"type":"conflict","a":"<twin>","b":"<twin>","issue":"<what>"}</world_action> to start a rivalry; ` +
+    `<world_action>{"type":"director","enabled":true|false}</world_action> to pause/resume the world director. ` +
+    `Never emit blocks for ordinary conversation.`
   );
 }
 
@@ -40,6 +47,11 @@ function parseAction(raw: unknown): WorldAction | undefined {
     return { type: "ask", persona: a.persona.trim(), text: a.text.trim() };
   if (a.type === "remove" && typeof a.persona === "string" && a.persona.trim())
     return { type: "remove", persona: a.persona.trim() };
+  if (a.type === "goal" && typeof a.persona === "string" && typeof a.title === "string" && a.title.trim())
+    return { type: "goal", persona: a.persona.trim(), title: a.title.trim() };
+  if (a.type === "conflict" && typeof a.a === "string" && typeof a.b === "string" && typeof a.issue === "string")
+    return { type: "conflict", a: a.a.trim(), b: a.b.trim(), issue: a.issue.trim() };
+  if (a.type === "director" && typeof a.enabled === "boolean") return { type: "director", enabled: a.enabled };
   if (a.type === "simulate")
     return {
       type: "simulate",
@@ -72,6 +84,12 @@ export function heuristicWorldAction(lastUserMessage: string, twinNames: string[
     return { type: "scenario", text, rounds: 2 };
   if (/\b(run|start|launch)\b.*\bsimulat/i.test(text))
     return { type: "simulate", rounds: Number(process.env.MIROFISH_MAX_ROUNDS ?? 10) };
+  const gl = text.match(/\bgoal\s+(?:for|of)\s+([A-Z][\w'.-]+(?:\s+[A-Z][\w'.-]+)*)\s*[:\-—]?\s*(.+)/);
+  if (gl) return { type: "goal", persona: gl[1], title: gl[2].trim() };
+  const cf = text.match(/\b(?:rivalr|conflict|rival)\w*\s+(?:between\s+)?([A-Z][\w'.-]+(?:\s+[A-Z][\w'.-]+)*)\s+(?:and|vs\.?|versus)\s+([A-Z][\w'.-]+(?:\s+[A-Z][\w'.-]+)*)\s*(?:over|about|on)?\s*(.+)/);
+  if (cf) return { type: "conflict", a: cf[1], b: cf[2], issue: (cf[3] ?? "a rivalry").trim() };
+  if (/\b(pause|stop|disable)\b.*\b(director|director tick)\b/i.test(text)) return { type: "director", enabled: false };
+  if (/\b(resume|start|enable)\b.*\bdirector\b/i.test(text)) return { type: "director", enabled: true };
   return { type: "inject", text };
 }
 
