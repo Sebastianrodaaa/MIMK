@@ -1,0 +1,273 @@
+{
+  "source": "The-OSINT-Newsletter/OSINT-Tools-Library (+ hand-written Core)",
+  "categories": {
+    "Core": [
+      {
+        "name": "Google",
+        "url": "https://www.google.com",
+        "what": "General web search — primary discovery pivot.",
+        "how": "Search \"<name>\", \"<name>\" <handle>, site: queries."
+      },
+      {
+        "name": "DuckDuckGo",
+        "url": "https://duckduckgo.com",
+        "what": "Privacy-friendly web search.",
+        "how": "Same queries as Google; good second opinion."
+      },
+      {
+        "name": "GitHub",
+        "url": "https://github.com",
+        "what": "Code host — repositories, profiles, orgs.",
+        "how": "Search users by name/handle; read public profile + repos."
+      },
+      {
+        "name": "LinkedIn (public)",
+        "url": "https://www.linkedin.com",
+        "what": "Professional profiles, public pages only.",
+        "how": "Search name; only read pages visible without login."
+      },
+      {
+        "name": "Wikipedia",
+        "url": "https://www.wikipedia.org",
+        "what": "Encyclopedia — notable people/orgs.",
+        "how": "Search name; check references + talk pages."
+      }
+    ],
+    "Username": [
+      {
+        "name": "WhatsMyName",
+        "url": "https://whatsmyname.app/",
+        "what": "It searches hundreds of websites to determine whether a specific username exists on those platforms.",
+        "how": "Simply enter the username you want to investigate and click search to begin scanning supported platforms. Review the results to identify which websites contain "
+      },
+      {
+        "name": "Hippie OSINT Toolkit",
+        "url": "https://osint.hippie.cat/",
+        "what": "Helps investigators pivot from usernames, domains, images, social media posts, and other digital breadcrumbs.",
+        "how": "Choose a tool from the dashboard, paste in your target data (such as a username, domain, image URL, or TikTok link), and review the linked results and external "
+      },
+      {
+        "name": "SpiderFoot.tools",
+        "url": "https://spiderfoot.tools/",
+        "what": "Helps identify public profiles, web references, digital footprints, and network-related information without requiring a local SpiderFoot.too",
+        "how": "Enter the target value, start the scan, and review the returned public-source matches and related web context."
+      }
+    ],
+    "People": [
+      {
+        "name": "Names Directory",
+        "url": "https://namesdir.com/",
+        "what": "Searches associations between first names and surnames, including alternative/variant spellings.",
+        "how": "Enter a first name, surname or nickname and review the associated names and results."
+      },
+      {
+        "name": "Forebears",
+        "url": "https://forebears.io/",
+        "what": "Shows where a surname is most common globally, estimates how many people have that name, provides name meanings and origins, and highlights ",
+        "how": "Simply enter a surname into the search bar and results appear instantly to analyse and pivot."
+      },
+      {
+        "name": "Hippie OSINT Toolkit",
+        "url": "https://osint.hippie.cat/",
+        "what": "Helps investigators pivot from usernames, domains, images, social media posts, and other digital breadcrumbs.",
+        "how": "Choose a tool from the dashboard, paste in your target data (such as a username, domain, image URL, or TikTok link), and review the linked results and external "
+      },
+      {
+        "name": "SynapsInt",
+        "url": "https://synapsint.com/",
+        "what": "Aggregates publicly available information from multiple OSINT sources to investigate people, organisations and digital identifiers.",
+        "how": "Search using an email address, username, domain, IP address, phone number or other identifier, then review results."
+      },
+      {
+        "name": "Buzzglobe",
+        "url": "https://buzzglobe.com/",
+        "what": "Searches publicly indexed social-media content across multiple platforms from one interface.",
+        "how": "Enter a name, username, keyword or phrase, and filter results by platform, date, content type or search terms."
+      },
+      {
+        "name": "OSINT Tools Map",
+        "url": "https://cybdetective.com/osintmap/",
+        "what": "Provides a visual, searchable map of OSINT resources worldwide.",
+        "how": "Browse directly on the map or use the search bar to search by country/region, select a relevant OSINT tool and follow the link to the external resource."
+      }
+    ],
+    "Social Media": [
+      {
+        "name": "Socialprofiler",
+        "url": "https://socialprofiler.com/",
+        "what": "Finds a person's public social accounts across four networks from one identifier and builds an interest-based profile of the public footprin",
+        "how": "Enter a US phone number, username, profile link, or name and state, review the free preview, or open the full report to see account links, interests, connection"
+      },
+      {
+        "name": "Internect.info",
+        "url": "https://internect.info/",
+        "what": "Searches the AT Protocol to find Bluesky user handles and profile-related data.",
+        "how": "Enter a username or handle, run the search, then review matching Bluesky accounts and associated metadata."
+      },
+      {
+        "name": "Arctic Shift",
+        "url": "https://arctic-shift.photon-reddit.com/",
+        "what": "Searches archived Reddit posts, comments, users and subreddits, including much deleted content, using advanced search operators and filters.",
+        "how": "Enter keywords, usernames or subreddit names, apply filters such as date ranges or score, and review archived posts and comments relevant to your investigation."
+      },
+      {
+        "name": "THINKPOL Reddit Search",
+        "url": "https://think-pol.com/tools/reddit-search",
+        "what": "Surfaces Reddit posts and comments already deleted or removed, and profiles users and subreddits, using a 30-billion-post historical archive",
+        "how": "Pick a tool (user lookup, deleted-post viewer, subreddit intelligence, or archive search), enter a Reddit username, subreddit, or keyword, and review the result"
+      },
+      {
+        "name": "RedditMetis",
+        "url": "https://redditmetis.com/",
+        "what": "Analyses Reddit user profiles to generate insights on activity, interests, sentiment, and behavioural patterns.",
+        "how": "Enter a Reddit username and instantly get a profile analysis report."
+      },
+      {
+        "name": "YouTube Channel ID Finder",
+        "url": "https://www.collabpals.com/tools/youtube-channel-id-finder",
+        "what": "Finds the permanent channel ID behind a YouTube URL, @handle, video or Shorts link, or username, one at a time or in bulk.",
+        "how": "Paste a channel URL, @handle, video or Shorts link and press Find; use the Bulk Lookup tab for up to 10 at once."
+      }
+    ],
+    "Public Records": [
+      {
+        "name": "United States Patent and Trademark Office (USPTO)",
+        "url": "https://www.uspto.gov/",
+        "what": "<p>Search trademarks (brand names, logos, slogans)</p><p>Explore patents (inventions, tech, designs)</p><p>Identify owners, applicants, and ",
+        "how": "Search a name, company, or keyword, filter results, and dive into records for owners, filings, and documents."
+      },
+      {
+        "name": "Business registers in EU countries",
+        "url": "https://e-justice.europa.eu/topics/registers-business-insolvency-land/business-registers-eu-countries\\_en",
+        "what": "Provides links to official national business registers for EU Member States to verify company registration details and corporate information",
+        "how": "Select the relevant country, access its official business register and search using a company name or registration number."
+      },
+      {
+        "name": "Companies House",
+        "url": "https://find-and-update.company-information.service.gov.uk/",
+        "what": "Provides public access to the UK corporate register, including details about incorporated companies, limited liability partnerships (LLPs), ",
+        "how": "Search by company name, registration number, or officer name to find company info including filing history, accounts, registered address & director appointments"
+      },
+      {
+        "name": "Registry Lookup",
+        "url": "https://registry-lookup.com/",
+        "what": "Searches official company registry records worldwide by name, registry number, jurisdiction, or tax/VAT identifier.",
+        "how": "Enter a company name or registry number, filter by jurisdiction, then open the entity record to view its registry identifiers and status."
+      },
+      {
+        "name": "Import Yeti",
+        "url": "https://www.importyeti.com/",
+        "what": "Searches and analyses U.S. import records to reveal supplier-customer relationships, shipping activity, manufacturers, sourcing locations & ",
+        "how": "Search by company name, supplier, brand, manufacturer, or product keyword to explore import records and supply chain relationships."
+      },
+      {
+        "name": "EDGAR Full Text Search",
+        "url": "https://www.sec.gov/edgar/search/#",
+        "what": "Searches the full text of SEC filings, including annual reports, quarterly reports, registration statements, insider filings etc. filed by p",
+        "how": "Enter keywords, company names, filing types, dates, or phrases and review matching SEC filings and documents."
+      }
+    ],
+    "Public Media": [
+      {
+        "name": "AllYouCanRead",
+        "url": "https://www.allyoucanread.com/",
+        "what": "Provides a searchable directory of newspapers, magazines and news websites from around the world.",
+        "how": "Search or browse publications by country, topic, name or location and follow links to relevant media outlets."
+      },
+      {
+        "name": "Europe Media Monitor",
+        "url": "https://media-monitor.europa.eu/home",
+        "what": "Aggregates and monitors global news from thousands of online media sources in multiple languages.",
+        "how": "Search topics, monitor breaking news, filter results by country or language, and review automatically clustered articles."
+      },
+      {
+        "name": "NewsMap",
+        "url": "https://newsmap.cc/",
+        "what": "Maps news stories geographically and allows users to search, filter and explore current and recent news.",
+        "how": "Open the map, search for a keyword or topic, select a time period, and filter results by category or source."
+      },
+      {
+        "name": "Lanes",
+        "url": "https://lanes.news",
+        "what": "Compares how each party's press, and press from uninvolved countries, report the same conflict events, and labels each claim as corroborated",
+        "how": "Pick a conflict, open today's daily page or the bridge page, and follow each claim to its source articles."
+      },
+      {
+        "name": "Monitor the Situation",
+        "url": "https://monitor-the-situation.com/",
+        "what": "Aggregates live global events, crisis reporting, aircraft and maritime activity, weather, disasters and infrastructure information into inte",
+        "how": "Open the global or regional map, select relevant layers or filters, open events, and examine their supporting sources and timestamps."
+      },
+      {
+        "name": "Vigil Consilium",
+        "url": "https://vigilconsilium.com/",
+        "what": "Connects sourced events, actors, relationships, military structures, geography, logistics, economic conditions and standing analytical quest",
+        "how": "Choose a coverage area, then use Read for analysis, Explore for connected records, Map for geography and activity over time, or Watch for standing questions and"
+      }
+    ],
+    "Archiving": [
+      {
+        "name": "Arctic Shift",
+        "url": "https://arctic-shift.photon-reddit.com/",
+        "what": "Searches archived Reddit posts, comments, users and subreddits, including much deleted content, using advanced search operators and filters.",
+        "how": "Enter keywords, usernames or subreddit names, apply filters such as date ranges or score, and review archived posts and comments relevant to your investigation."
+      },
+      {
+        "name": "Wayback Machine",
+        "url": "https://web.archive.org/",
+        "what": "It stores snapshots of webpages taken at different times, allowing users to see how a site looked on a specific date.",
+        "how": "Enter a website URL into the search bar on the homepage. The tool will show whether archived snapshots exist and let you view them by date."
+      },
+      {
+        "name": "SearchShared",
+        "url": "https://www.searchshared.info/",
+        "what": "Searches for files indexed across file-sharing and hosting services.",
+        "how": "Enter keywords or a filename, select a relevant hosting source where available, then review the returned links."
+      },
+      {
+        "name": "Free Full PDF",
+        "url": "https://www.freefullpdf.com/",
+        "what": "Searches for freely available scientific PDFs.",
+        "how": "Simply search by keyword, phrase, author or subject, review results, and open available PDFs."
+      }
+    ],
+    "Foundational": [
+      {
+        "name": "DuckDuckGo",
+        "url": "https://duckduckgo.com/",
+        "what": "Searches publicly available web content without building a personal search profile.",
+        "how": "Use keywords, quotation marks, Boolean operators and search modifiers (such as site: and filetype:) to identify relevant publicly available information from acr"
+      },
+      {
+        "name": "Excite Web Search",
+        "url": "https://www.excite.com/",
+        "what": "Searches the web and returns links to publicly available online sources relevant to a user's search query.",
+        "how": "Enter keywords, names, organisations, events or phrases into the search box and review the returned results."
+      },
+      {
+        "name": "Lukol Search Engine",
+        "url": "https://www.lukol.com/",
+        "what": "Provides web and image searches through Google Custom Search.",
+        "how": "Enter keywords, names or phrases, switch between web and image results, and follow relevant results to their original sources."
+      },
+      {
+        "name": "SIERRA",
+        "url": "https://phantomhelix.com/download",
+        "what": "Keeps investigation notes, screenshots, entities, relationships, time metadata, and tool output together in a local graph workspace.",
+        "how": "Download the desktop app, create a case graph, add entities/notes/images, connect relationships, attach time metadata, and run local/cloud invokers when needed."
+      },
+      {
+        "name": "FindTheScam",
+        "url": "https://findthescam.net/",
+        "what": "Analyses suspicious domains and surfaces legitimacy and risk signals before users trust a site.",
+        "how": "Enter a domain or open a report page to review WHOIS, SSL, DNS, metadata, and trust indicators."
+      },
+      {
+        "name": "EarthPoint Convert",
+        "url": "https://www.earthpoint.us/Convert.aspx",
+        "what": "Converts GPS coordinates and geographic data into different formats for mapping and analysis.",
+        "how": "Upload or enter coordinate data, select the required output format, and convert the data for use in mapping tools."
+      }
+    ]
+  }
+}

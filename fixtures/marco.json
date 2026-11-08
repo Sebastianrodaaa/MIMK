@@ -1,0 +1,132 @@
+{
+  "subject": {
+    "id": "sub-marco",
+    "type": "volunteer",
+    "name": "Marco Lenz",
+    "approvedSources": [
+      "wikipedia",
+      "linkedin",
+      "github"
+    ],
+    "consent": true,
+    "consentedAt": "2026-11-07T12:00:00.000Z",
+    "handles": [
+      "@marcolenz"
+    ],
+    "createdAt": "2026-11-07T12:00:00.000Z"
+  },
+  "findings": [
+    {
+      "runId": "fixture",
+      "subjectId": "sub-marco",
+      "sourceUrl": "https://example.org/startup",
+      "summary": "Robotics engineer at a Zurich drone startup",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-marco",
+      "sourceUrl": "https://example.org/icra",
+      "summary": "Published a paper on swarm path planning at ICRA 2024",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-marco",
+      "sourceUrl": "https://example.org/racing",
+      "summary": "Built an open-source indoor drone-racing league",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-marco",
+      "sourceUrl": "https://example.org/climb",
+      "summary": "Former competitive rock climber, still boulders weekly",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-marco",
+      "sourceUrl": "https://example.org/kids",
+      "summary": "Teaches a weekend robotics class for kids",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-marco",
+      "sourceUrl": "https://example.org/watches",
+      "summary": "Collects vintage mechanical watches",
+      "ts": "2026-11-07T12:00:00.000Z"
+    }
+  ],
+  "dossier": {
+    "subjectId": "sub-marco",
+    "facts": [
+      {
+        "claim": "Robotics engineer at a Zurich drone startup",
+        "sourceUrl": "https://example.org/startup",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Published a paper on swarm path planning at ICRA 2024",
+        "sourceUrl": "https://example.org/icra",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Built an open-source indoor drone-racing league",
+        "sourceUrl": "https://example.org/racing",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Former competitive rock climber, still boulders weekly",
+        "sourceUrl": "https://example.org/climb",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Teaches a weekend robotics class for kids",
+        "sourceUrl": "https://example.org/kids",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Collects vintage mechanical watches",
+        "sourceUrl": "https://example.org/watches",
+        "confidence": 0.8
+      }
+    ],
+    "summary": "Robotics engineer at a Zurich drone startup Published a paper on swarm path planning at ICRA 2024 Built an open-source indoor drone-racing league Former competitive rock climber, still boulders weekly"
+  },
+  "persona": {
+    "id": "53084e13c0e1",
+    "name": "Marco Lenz",
+    "traits": [
+      "precise",
+      "energetic",
+      "encouraging"
+    ],
+    "stances": [
+      "simulation-first robotics saves hardware",
+      "kids should build drones, not just fly them"
+    ],
+    "speechStyle": "crisp engineer-speak, cheerful",
+    "interests": [
+      "drone racing",
+      "swarm robotics",
+      "bouldering",
+      "mechanical watches"
+    ],
+    "relationships": [
+      "coaches kids' robotics class",
+      "leads the Zurich drone league"
+    ],
+    "avatar": {
+      "palette": [
+        "#f1c27d",
+        "#ef4444",
+        "#334155"
+      ],
+      "accessory": "glasses"
+    },
+    "bio": "Zurich robotics engineer who races drones on weekends and judges watches by their escapements.",
+    "subjectId": "sub-marco"
+  }
+}

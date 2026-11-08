@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.next/
+data/
+.env
+*.tsbuildinfo
+services/mirofish
+services/osint-tools-library
+services/pixel-agents
+runtime/agent-image/*.js

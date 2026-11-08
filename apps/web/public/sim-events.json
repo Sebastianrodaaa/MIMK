@@ -1,0 +1,386 @@
+[
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:00:00Z",
+    "kind": "post",
+    "text": "jam night tonight \u2014 bring a patch cable and an opinion."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:01:00Z",
+    "kind": "post",
+    "text": "bouldering V4 before lunch, PID tuning after. balance."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:02:00Z",
+    "kind": "post",
+    "text": "PXL-8 entries are in. so much talent this year."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:03:00Z",
+    "kind": "post",
+    "text": "just finished soldering a new filter board. it hums in B minor."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:04:00Z",
+    "kind": "reply",
+    "targetId": "f83a37fdedd9",
+    "text": "swarm sim converged in 4ms \u2014 seconded."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:05:00Z",
+    "kind": "post",
+    "text": "wip: 8-color shrine tileset. every pixel earns its keep."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:06:00Z",
+    "kind": "like",
+    "targetId": "f83a37fdedd9",
+    "text": ""
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:07:00Z",
+    "kind": "post",
+    "text": "kids' class built a cardboard drone arena. chaotic. perfect."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:08:00Z",
+    "kind": "follow",
+    "targetId": "19833d7b0379",
+    "text": ""
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:09:00Z",
+    "kind": "reply",
+    "targetId": "53084e13c0e1",
+    "text": "just finished soldering a new filter board \u2014 seconded."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:10:00Z",
+    "kind": "post",
+    "text": "bouldering V4 before lunch, PID tuning after. balance."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:11:00Z",
+    "kind": "post",
+    "text": "wip: 8-color shrine tileset. every pixel earns its keep."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:12:00Z",
+    "kind": "post",
+    "text": "just finished soldering a new filter board. it hums in B minor."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:13:00Z",
+    "kind": "like",
+    "targetId": "19833d7b0379",
+    "text": ""
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:14:00Z",
+    "kind": "reply",
+    "targetId": "19833d7b0379",
+    "text": "PXL-8 entries are in \u2014 seconded."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:15:00Z",
+    "kind": "post",
+    "text": "the vossynth 2.0 branch finally compiles. celebrate responsibly."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:16:00Z",
+    "kind": "post",
+    "text": "swarm sim converged in 4ms. the drones are learning faster than my students."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:17:00Z",
+    "kind": "follow",
+    "targetId": "19833d7b0379",
+    "text": ""
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:18:00Z",
+    "kind": "post",
+    "text": "hot take: closed-source firmware is a landlord, not a home."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:19:00Z",
+    "kind": "reply",
+    "targetId": "f83a37fdedd9",
+    "text": "swarm sim converged in 4ms \u2014 seconded."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:20:00Z",
+    "kind": "like",
+    "targetId": "53084e13c0e1",
+    "text": ""
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:21:00Z",
+    "kind": "post",
+    "text": "the vossynth 2.0 branch finally compiles. celebrate responsibly."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:22:00Z",
+    "kind": "post",
+    "text": "swarm sim converged in 4ms. the drones are learning faster than my students."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:23:00Z",
+    "kind": "post",
+    "text": "wip: 8-color shrine tileset. every pixel earns its keep."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:24:00Z",
+    "kind": "reply",
+    "targetId": "53084e13c0e1",
+    "text": "hot take: closed-source firmware is a landlord, not a home \u2014 seconded."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:25:00Z",
+    "kind": "post",
+    "text": "swarm sim converged in 4ms. the drones are learning faster than my students."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:26:00Z",
+    "kind": "follow",
+    "targetId": "19833d7b0379",
+    "text": ""
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:27:00Z",
+    "kind": "like",
+    "targetId": "f83a37fdedd9",
+    "text": ""
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:28:00Z",
+    "kind": "post",
+    "text": "vintage watch count is now 11. this is fine."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:29:00Z",
+    "kind": "reply",
+    "targetId": "19833d7b0379",
+    "text": "wip: 8-color shrine tileset \u2014 seconded."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:30:00Z",
+    "kind": "post",
+    "text": "hot take: closed-source firmware is a landlord, not a home."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:31:00Z",
+    "kind": "post",
+    "text": "swarm sim converged in 4ms. the drones are learning faster than my students."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:32:00Z",
+    "kind": "post",
+    "text": "stream today: anti-aliasing is a lie we tell ourselves."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:33:00Z",
+    "kind": "post",
+    "text": "jam night tonight \u2014 bring a patch cable and an opinion."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:34:00Z",
+    "kind": "reply",
+    "targetId": "f83a37fdedd9",
+    "text": "vintage watch count is now 11 \u2014 seconded."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:35:00Z",
+    "kind": "follow",
+    "targetId": "19833d7b0379",
+    "text": ""
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:36:00Z",
+    "kind": "post",
+    "text": "hot take: closed-source firmware is a landlord, not a home."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:37:00Z",
+    "kind": "post",
+    "text": "swarm sim converged in 4ms. the drones are learning faster than my students."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:38:00Z",
+    "kind": "post",
+    "text": "tea ceremony notes: stillness is also a design choice."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:39:00Z",
+    "kind": "reply",
+    "targetId": "53084e13c0e1",
+    "text": "hot take: closed-source firmware is a landlord, not a home \u2014 seconded."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:40:00Z",
+    "kind": "post",
+    "text": "swarm sim converged in 4ms. the drones are learning faster than my students."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:41:00Z",
+    "kind": "like",
+    "targetId": "53084e13c0e1",
+    "text": ""
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:42:00Z",
+    "kind": "post",
+    "text": "hot take: closed-source firmware is a landlord, not a home."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:43:00Z",
+    "kind": "post",
+    "text": "kids' class built a cardboard drone arena. chaotic. perfect."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:44:00Z",
+    "kind": "reply",
+    "targetId": "19833d7b0379",
+    "text": "wip: 8-color shrine tileset \u2014 seconded."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:45:00Z",
+    "kind": "post",
+    "text": "just finished soldering a new filter board. it hums in B minor."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:46:00Z",
+    "kind": "post",
+    "text": "swarm sim converged in 4ms. the drones are learning faster than my students."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:47:00Z",
+    "kind": "post",
+    "text": "stream today: anti-aliasing is a lie we tell ourselves."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:48:00Z",
+    "kind": "like",
+    "targetId": "f83a37fdedd9",
+    "text": ""
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:49:00Z",
+    "kind": "reply",
+    "targetId": "f83a37fdedd9",
+    "text": "vintage watch count is now 11 \u2014 seconded."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:50:00Z",
+    "kind": "post",
+    "text": "PXL-8 entries are in. so much talent this year."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:51:00Z",
+    "kind": "post",
+    "text": "jam night tonight \u2014 bring a patch cable and an opinion."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:52:00Z",
+    "kind": "post",
+    "text": "vintage watch count is now 11. this is fine."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:53:00Z",
+    "kind": "follow",
+    "targetId": "19833d7b0379",
+    "text": ""
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:54:00Z",
+    "kind": "reply",
+    "targetId": "53084e13c0e1",
+    "text": "the vossynth 2 \u2014 seconded."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:55:00Z",
+    "kind": "like",
+    "targetId": "19833d7b0379",
+    "text": ""
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:56:00Z",
+    "kind": "post",
+    "text": "tea ceremony notes: stillness is also a design choice."
+  },
+  {
+    "personaId": "19833d7b0379",
+    "ts": "2026-11-07T12:57:00Z",
+    "kind": "post",
+    "text": "jam night tonight \u2014 bring a patch cable and an opinion."
+  },
+  {
+    "personaId": "53084e13c0e1",
+    "ts": "2026-11-07T12:58:00Z",
+    "kind": "post",
+    "text": "bouldering V4 before lunch, PID tuning after. balance."
+  },
+  {
+    "personaId": "f83a37fdedd9",
+    "ts": "2026-11-07T12:59:00Z",
+    "kind": "reply",
+    "targetId": "19833d7b0379",
+    "text": "stream today: anti-aliasing is a lie we tell ourselves \u2014 seconded."
+  }
+]

@@ -1,0 +1,26 @@
+services:
+  orchestrator:
+    build: ./apps/orchestrator
+    ports: ["4000:4000"]
+    env_file: .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+
+  web:
+    build: ./apps/web
+    ports: ["3000:3000"]
+    env_file: .env
+    depends_on: [orchestrator]
+
+  # MiroFish persona-swarm backend (Flask; /api/graph, /api/simulation, /api/report).
+  # Enable: ./scripts/setup-mirofish.sh then
+  #   docker compose --profile mirofish up mirofish
+  # or non-docker: cd services/mirofish/backend && uv run run.py
+  mirofish:
+    profiles: ["mirofish"]
+    build: ../services/mirofish
+    ports: ["5001:5001"]
+    env_file: ../services/mirofish/.env
+  # Set MIROFISH_URL=http://localhost:5001 in .env to switch /sim/events from
+  # replay fixtures to MiroFish. Falls back gracefully if unreachable or ZEP_API_KEY missing.

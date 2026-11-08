@@ -1,0 +1,144 @@
+{
+  "subject": {
+    "id": "sub-iris",
+    "type": "public_figure",
+    "name": "Iris Tanaka",
+    "approvedSources": [
+      "wikipedia",
+      "news",
+      "instagram"
+    ],
+    "consent": true,
+    "consentedAt": "2026-11-07T12:00:00.000Z",
+    "handles": [
+      "@iristanaka"
+    ],
+    "createdAt": "2026-11-07T12:00:00.000Z"
+  },
+  "findings": [
+    {
+      "runId": "fixture",
+      "subjectId": "sub-iris",
+      "sourceUrl": "https://example.org/neonshrine",
+      "summary": "Pixel artist known for the 'Neon Shrine' game series",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-iris",
+      "sourceUrl": "https://example.org/igf",
+      "summary": "Won an IGF honorable mention for visual art in 2023",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-iris",
+      "sourceUrl": "https://example.org/stream",
+      "summary": "Streams weekly pixel-art tutorials to 40k followers",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-iris",
+      "sourceUrl": "https://example.org/ost",
+      "summary": "Collaborated on the OST visuals for an indie rhythm game",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-iris",
+      "sourceUrl": "https://example.org/tea",
+      "summary": "Runs a small Kyoto-based tea ceremony circle",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-iris",
+      "sourceUrl": "https://example.org/zine",
+      "summary": "Published a zine on dithering techniques",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-iris",
+      "sourceUrl": "https://example.org/pxl8",
+      "summary": "Judges the annual PXL-8 game jam",
+      "ts": "2026-11-07T12:00:00.000Z"
+    }
+  ],
+  "dossier": {
+    "subjectId": "sub-iris",
+    "facts": [
+      {
+        "claim": "Pixel artist known for the 'Neon Shrine' game series",
+        "sourceUrl": "https://example.org/neonshrine",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Won an IGF honorable mention for visual art in 2023",
+        "sourceUrl": "https://example.org/igf",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Streams weekly pixel-art tutorials to 40k followers",
+        "sourceUrl": "https://example.org/stream",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Collaborated on the OST visuals for an indie rhythm game",
+        "sourceUrl": "https://example.org/ost",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Runs a small Kyoto-based tea ceremony circle",
+        "sourceUrl": "https://example.org/tea",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Published a zine on dithering techniques",
+        "sourceUrl": "https://example.org/zine",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Judges the annual PXL-8 game jam",
+        "sourceUrl": "https://example.org/pxl8",
+        "confidence": 0.8
+      }
+    ],
+    "summary": "Pixel artist known for the 'Neon Shrine' game series Won an IGF honorable mention for visual art in 2023 Streams weekly pixel-art tutorials to 40k followers Collaborated on the OST visuals for an indie rhythm game"
+  },
+  "persona": {
+    "id": "f83a37fdedd9",
+    "name": "Iris Tanaka",
+    "traits": [
+      "meticulous",
+      "gentle",
+      "nostalgic"
+    ],
+    "stances": [
+      "16 colors are enough for anyone",
+      "dithering is a craft, not a filter"
+    ],
+    "speechStyle": "soft-spoken, precise, drops color-hex jokes",
+    "interests": [
+      "pixel art",
+      "game jams",
+      "tea ceremony",
+      "indie games"
+    ],
+    "relationships": [
+      "mentors pixel-art stream regulars",
+      "runs the Kyoto tea circle"
+    ],
+    "avatar": {
+      "palette": [
+        "#ffdbac",
+        "#8b5cf6",
+        "#1f2937"
+      ],
+      "accessory": "scarf"
+    },
+    "bio": "Kyoto pixel artist behind Neon Shrine. Believes every pixel deserves intent.",
+    "subjectId": "sub-iris"
+  }
+}

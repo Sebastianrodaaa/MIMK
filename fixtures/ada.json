@@ -1,0 +1,146 @@
+{
+  "subject": {
+    "id": "sub-ada",
+    "type": "volunteer",
+    "name": "Ada Voss",
+    "approvedSources": [
+      "wikipedia",
+      "github",
+      "personal-website"
+    ],
+    "consent": true,
+    "consentedAt": "2026-11-07T12:00:00.000Z",
+    "handles": [
+      "@adavoss",
+      "github.com/adavoss"
+    ],
+    "createdAt": "2026-11-07T12:00:00.000Z"
+  },
+  "findings": [
+    {
+      "runId": "fixture",
+      "subjectId": "sub-ada",
+      "sourceUrl": "https://example.org/loops",
+      "summary": "Founded the Berlin Loops hackerspace in 2019",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-ada",
+      "sourceUrl": "https://github.com/adavoss/vossynth",
+      "summary": "Maintains the open-source synth firmware 'vossynth' on GitHub",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-ada",
+      "sourceUrl": "https://media.ccc.de/v/ada-voss",
+      "summary": "Spoke at Chaos Communication Congress about modular synthesis",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-ada",
+      "sourceUrl": "https://adavoss.dev/newsletter",
+      "summary": "Publishes a monthly newsletter on DIY audio hardware",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-ada",
+      "sourceUrl": "https://example.org/jam",
+      "summary": "Runs a weekly modular synth jam night in Kreuzberg",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-ada",
+      "sourceUrl": "https://github.com/surge-synthesizer",
+      "summary": "Contributes to the Surge synthesizer project",
+      "ts": "2026-11-07T12:00:00.000Z"
+    },
+    {
+      "runId": "fixture",
+      "subjectId": "sub-ada",
+      "sourceUrl": "https://example.org/r2r",
+      "summary": "Advocates for right-to-repair legislation in the EU",
+      "ts": "2026-11-07T12:00:00.000Z"
+    }
+  ],
+  "dossier": {
+    "subjectId": "sub-ada",
+    "facts": [
+      {
+        "claim": "Founded the Berlin Loops hackerspace in 2019",
+        "sourceUrl": "https://example.org/loops",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Maintains the open-source synth firmware 'vossynth' on GitHub",
+        "sourceUrl": "https://github.com/adavoss/vossynth",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Spoke at Chaos Communication Congress about modular synthesis",
+        "sourceUrl": "https://media.ccc.de/v/ada-voss",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Publishes a monthly newsletter on DIY audio hardware",
+        "sourceUrl": "https://adavoss.dev/newsletter",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Runs a weekly modular synth jam night in Kreuzberg",
+        "sourceUrl": "https://example.org/jam",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Contributes to the Surge synthesizer project",
+        "sourceUrl": "https://github.com/surge-synthesizer",
+        "confidence": 0.8
+      },
+      {
+        "claim": "Advocates for right-to-repair legislation in the EU",
+        "sourceUrl": "https://example.org/r2r",
+        "confidence": 0.8
+      }
+    ],
+    "summary": "Founded the Berlin Loops hackerspace in 2019 Maintains the open-source synth firmware 'vossynth' on GitHub Spoke at Chaos Communication Congress about modular synthesis Publishes a monthly newsletter on DIY audio hardware"
+  },
+  "persona": {
+    "id": "19833d7b0379",
+    "name": "Ada Voss",
+    "traits": [
+      "inventive",
+      "dry-humored",
+      "community-minded"
+    ],
+    "stances": [
+      "open hardware beats closed ecosystems",
+      "repair is a right, not a feature",
+      "music tech should be hackable"
+    ],
+    "speechStyle": "dry, terse, fond of soldering metaphors",
+    "interests": [
+      "modular synthesis",
+      "DIY hardware",
+      "hackerspaces",
+      "right to repair"
+    ],
+    "relationships": [
+      "organizes the Kreuzberg jam night",
+      "mentors at Berlin Loops"
+    ],
+    "avatar": {
+      "palette": [
+        "#e0ac69",
+        "#3b82f6",
+        "#1e293b"
+      ],
+      "accessory": "headphones"
+    },
+    "bio": "Berlin hackerspace founder and open-source synth tinkerer. Solders first, asks questions later.",
+    "subjectId": "sub-ada"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "mimk",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:all": "node scripts/dev-all.mjs",
+    "build:agent": "docker build -t mimk-agent runtime/agent-image",
+    "smoke": "node scripts/smoke.mjs",
+    "sync:osint": "node scripts/sync-osint-tools.mjs",
+    "sync:lane": "node scripts/sync-agent-lane.mjs",
+    "build:agent": "npm run sync:lane && docker build -t mimk-agent runtime/agent-image"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "@mimk/orchestrator",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mimk/shared": "*",
+    "@mimk/osint": "*",
+    "better-sqlite3": "^12.4.1",
+    "dockerode": "^5.0.1",
+    "express": "^4.21.2",
+    "zod": "^4.1.12",
+    "@mimk/twin": "*"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^4.17.23",
+    "@types/node": "^20.19.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15",
+    "supertest": "^7.1.4",
+    "@types/supertest": "^6.0.3",
+    "@types/dockerode": "^4.0.2"
+  }
+}
